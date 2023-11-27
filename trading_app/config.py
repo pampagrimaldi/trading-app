@@ -8,8 +8,13 @@ class Settings(BaseSettings):
     database_password: str
     database_name: str
     database_username: str
+    apca_key: str
+    apca_secret_key: str
+    apca_api_base_url: str
+    polygon_key: str
 
     # import variables from .env file
+
     class Config:
         env_file = ".env"
 

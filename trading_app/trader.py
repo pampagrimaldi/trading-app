@@ -1,17 +1,19 @@
 import alpaca_trade_api as tradeapi
+from trading_app.config import settings
+from trading_app import models
+from trading_app.database import get_db, SessionLocal
+from sqlalchemy.orm import Session
 
+# note this is the legacy version of the api - alpaca-py is the latest but can't get it to work
+# version 1 working
 
-# from config import settings
-APCA_API_KEY_ID = "AK8VVA617A8S1ICHKD67"
-APCA_API_SECRET_KEY = "O4jrYbarF7eePJB5VsWkX6fh4orePjtjur5pn46R"
-APCA_API_BASE_URL = "https://paper-api.alpaca.markets"
+# todo: check lean instead of alpaca
+# todo: check timescaleDB instead of PG (try with psycopg2)
+# todo: introduce RL algos
+
 
 api = tradeapi.REST(
-    key_id=APCA_API_KEY_ID,
-    secret_key=APCA_API_SECRET_KEY,
+    key_id=settings.apca_key,
+    secret_key=settings.apca_secret_key,
     api_version="v2",
 )
-
-# obtain account information
-account = api.get_account()
-print(account)

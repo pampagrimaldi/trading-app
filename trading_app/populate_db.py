@@ -3,41 +3,59 @@ from trading_app import models
 from trading_app.database import get_db, SessionLocal
 from trading_app.trader import api
 from sqlalchemy.orm import Session
+import logging
+import os
 
+# Setup logging
+script_dir = os.path.dirname(os.path.realpath(__file__))
+project_root_dir = os.path.dirname(
+    script_dir
+)  # Move one directory up to the project root
+logs_dir = os.path.join(project_root_dir, "logs")
 
-# note this is the legacy version of the api - alpaca-py is the latest but can't get it to work
-# version 1 working
+# Create logs directory if it doesn't exist
+if not os.path.exists(logs_dir):
+    os.makedirs(logs_dir)
 
-# todo: check lean instead of alpaca
-# todo: check timescaleDB instead of PG (try with psycopg2)
-# todo: introduce RL algos
+log_file_path = os.path.join(logs_dir, "trading_app.log")
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
-
-# check assets
-assets = api.list_assets()
+file_handler = logging.FileHandler(log_file_path)
+file_handler.setLevel(logging.INFO)
+file_handler.setFormatter(
+    logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+)
+logger.addHandler(file_handler)
 
 
 # Function to insert stock data
-def insert_stock_data(session: Session, symbol: str, company: str):
-    # Check if the stock already exists
+def insert_stock_data(session: Session, symbol: str, company: str, new_stock_added):
     existing_stock = (
         session.query(models.Stock).filter(models.Stock.symbol == symbol).first()
     )
-
     if not existing_stock:
         new_stock = models.Stock(symbol=symbol, company=company)
         session.add(new_stock)
+        logger.info(f"Added new stock: {symbol}, {company}")
+        new_stock_added.append(True)
 
 
-# Create a database session and insert data
-with SessionLocal() as session:
-    for asset in assets:
-        try:
+try:
+    assets = api.list_assets()
+
+    new_stock_added = []  # List to track if new stocks are added
+
+    with SessionLocal() as session:
+        for asset in assets:
             if asset.status == "active" and asset.tradable:
-                # Insert stock data if not already present
-                insert_stock_data(session, asset.symbol, asset.name)
-        except Exception as e:
-            print(f"Error processing asset {asset.symbol}: {e}")
+                insert_stock_data(session, asset.symbol, asset.name, new_stock_added)
 
-    # Commit the session to save changes
-    session.commit()
+        session.commit()
+        logger.info("Database update completed successfully.")
+
+    if not new_stock_added:
+        logger.info("No new stocks were found to add.")
+
+except Exception as e:
+    logger.error(f"Error during script execution: {e}")
