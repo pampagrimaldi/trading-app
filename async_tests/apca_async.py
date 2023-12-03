@@ -45,16 +45,21 @@ async def get_historic_data_base(symbols, data_type: DataType, start, end,
         results.extend(await asyncio.gather(*tasks, return_exceptions=True))
 
     bad_requests = 0
+    example_printed = False  # Flag to ensure only one example is printed
     for index, response in enumerate(results):
         if isinstance(response, Exception):
             print(f"Got an error: {response}")
         else:
             try:
-                # Check if response is as expected and process it
-                if not response:  # Adjust this condition based on actual response structure
+                # Check if the response is empty
+                if not response or (isinstance(response, pd.DataFrame) and response.empty):
                     bad_requests += 1
                     print(f"Empty response for symbol: {symbols[index % len(symbols)]}")
-                # else handle valid response
+                else:
+                    # Print an example of a non-empty response
+                    if not example_printed:
+                        print(f"Example response for symbol {symbols[index % len(symbols)]}:", response)
+                        # example_printed = True
             except Exception as e:
                 print(f"Error processing response for symbol {symbols[index % len(symbols)]}: {e}")
 
@@ -87,7 +92,8 @@ if __name__ == '__main__':
                         api_version="v2")
     # start time
     start_time = time.time()
-    symbols = [el.symbol for el in api.list_assets(status='active')]
-    # symbols = symbols[:200]
+    assets = api.list_assets()
+    symbols = [el.symbol for el in assets if el.status == "active" and el.tradable]
+    symbols = symbols[:10]
     asyncio.run(main(symbols))
     print(f"took {time.time() - start_time} sec")
