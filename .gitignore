@@ -1,5 +1,7 @@
+async_tests/
 .venv/
 .idea/
 .env
 data/
-async_tests/
+data_tests/
+
