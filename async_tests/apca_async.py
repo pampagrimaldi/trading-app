@@ -17,7 +17,7 @@ class DataType(str, Enum):
 
 
 # Define the new function for processing and logging responses
-async def process_and_log_responses(results, symbols):
+async def process_and_log_responses(results):
     bad_requests = 0
     example_printed = False  # Flag to ensure only one example is printed
     for response in results:
@@ -60,7 +60,7 @@ async def get_historic_bars(symbols, data_type: DataType, start, end,
         results.extend(await asyncio.gather(*tasks, return_exceptions=True))
 
     # Call the new function to process and log responses
-    await process_and_log_responses(results, symbols)
+    await process_and_log_responses(results)
 
 
 async def main(symbols):
