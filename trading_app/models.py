@@ -24,13 +24,13 @@ class StockPrice(Base):
     __tablename__ = 'stock_price'
     stock_id = Column(Integer, ForeignKey('stock.id'), primary_key=True)
     dt = Column(DateTime, primary_key=True, nullable=False)
-    open = Column(Numeric(6, 2), nullable=False)
-    high = Column(Numeric(6, 2), nullable=False)
-    low = Column(Numeric(6, 2), nullable=False)
-    close = Column(Numeric(6, 2), nullable=False)
+    close = Column(Numeric(10, 4), nullable=False)   # Adjusted precision and scale
+    high = Column(Numeric(10, 4), nullable=False)    # Adjusted precision and scale
+    low = Column(Numeric(10, 4), nullable=False)     # Adjusted precision and scale
+    trade_count = Column(Integer, nullable=False)    # New column for trade count
+    open = Column(Numeric(10, 4), nullable=False)    # Adjusted precision and scale
     volume = Column(Numeric, nullable=False)
-    # vwap = Column(Numeric(6, 2), nullable=False)
-    # transactions = Column(Integer, nullable=False)
+    vwap = Column(Numeric(10, 4), nullable=False)    # New column for VWAP
 
     # Define the relationship (optional, if you need to access Stock from StockPrice)
     stock = relationship("Stock")
