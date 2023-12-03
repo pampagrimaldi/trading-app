@@ -20,21 +20,24 @@ class DataType(str, Enum):
 async def process_and_log_responses(results, symbols):
     bad_requests = 0
     example_printed = False  # Flag to ensure only one example is printed
-    for index, response in enumerate(results):
+    for response in results:
+        ticker_symbol = response[0]
+        df = response[1]
         if isinstance(response, Exception):
             print(f"Got an error: {response}")
         else:
             try:
-                if not response or (isinstance(response, pd.DataFrame) and response.empty):
+                if not response or (isinstance(df, pd.DataFrame) and df.empty):
                     bad_requests += 1
-                    print(f"Empty response for symbol: {symbols[index % len(symbols)]}")
+                    print(f"Empty response for symbol: {ticker_symbol}")
                 else:
                     if not example_printed:
-                        print(f"Example response for symbol {symbols[index % len(symbols)]}:", response[1])
-                        print(f"Dataframe structure {symbols[index % len(symbols)]}:", type(response[1].info()))
+
+                        print(f"Example response for symbol {ticker_symbol}:", df.head(5))
+                        print(f"Dataframe structure:", type(df.info()))
                         example_printed = True
             except Exception as e:
-                print(f"Error processing response for symbol {symbols[index % len(symbols)]}: {e}")
+                print(f"Error processing response for symbol {ticker_symbol}: {e}")
 
     print(f"Total of {len(results)} responses, and {bad_requests} empty responses.")
 
