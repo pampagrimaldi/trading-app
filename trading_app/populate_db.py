@@ -42,7 +42,7 @@ def insert_stock_data(session: Session, symbol: str, company: str, new_stock_add
 
 
 try:
-    assets = api.list_assets()
+    assets = api.list_assets(asset_class="us_equity")
 
     new_stock_added = []  # List to track if new stocks are added
 

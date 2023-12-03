@@ -9,7 +9,8 @@ from trading_app.config import settings
 from io import BytesIO, StringIO
 import asyncpg
 import logging
-
+from tqdm.asyncio import tqdm
+from trading_app.trader import api
 
 class DataType(str, Enum):
     Bars = "Bars"
@@ -17,29 +18,11 @@ class DataType(str, Enum):
     Quotes = "Quotes"
 
 
-# async def write_to_db(connection, table_name, df):
-#     # Convert DataFrame to CSV in-memory using StringIO
-#     sio = StringIO()
-#     df.to_csv(sio, index=False, header=False)
-#     sio.seek(0)  # Rewind the buffer
-#
-#     # Use copy_to_table with StringIO
-#     await connection.copy_to_table(table_name, source=sio, format='csv')
-
-# Set up basic logging
-logging.basicConfig(level=logging.DEBUG)
-
-
 async def write_to_db(connection, table_name, df):
-    # Log DataFrame structure and first few rows
-    logging.debug(f"DataFrame structure: {df.dtypes}")
-    logging.debug(f"DataFrame preview: {df.head()}")
-
     # Convert DataFrame to CSV in-memory using BytesIO
     buffer = BytesIO()
     df.to_csv(buffer, index=False, header=False, mode='wb')
     buffer.seek(0)  # Rewind the buffer
-
     # Use copy_to_table with BytesIO
     await connection.copy_to_table(table_name, source=buffer, format='csv')
 
@@ -53,6 +36,8 @@ async def process_and_log_responses(pool, results, symbol_to_stock_id):
         elif df.empty:
             bad_requests += 1
             print(f"Empty response for symbol: {ticker_symbol}")
+            # Log additional details about the empty response
+            print(f"Details of empty response for {ticker_symbol}: {df}")
         else:
             try:
                 # Adjust the DataFrame and write it to the database
@@ -65,12 +50,11 @@ async def process_and_log_responses(pool, results, symbol_to_stock_id):
     print(f"Total of {len(results)} responses, and {bad_requests} empty responses.")
 
 
-
 def adjust_dataframe(ticker_symbol, df, symbol_to_stock_id):
     df['symbol'] = ticker_symbol
     df['stock_id'] = df['symbol'].map(symbol_to_stock_id)
-    df['timestamp'] = pd.to_datetime(df.index).tz_convert(None)
-    df = df[['stock_id', 'timestamp', 'close', 'high', 'low', 'trade_count', 'open', 'volume', 'vwap']]
+    df['dt'] = pd.to_datetime(df.index).tz_convert(None)
+    df = df[['stock_id', 'dt', 'close', 'high', 'low', 'trade_count', 'open', 'volume', 'vwap']]
 
     return df
 
@@ -82,18 +66,25 @@ async def get_symbol_to_id_mapping(pool):
         symbol_to_id = {row['symbol']: row['id'] for row in rows}
     return symbol_to_id
 
+
 async def get_historic_bars(pool, symbols, data_type: DataType, start, end,
                                  timeframe: TimeFrame = None, symbol_to_stock_id=None):
     print(f"Getting {data_type} data for {len(symbols)} symbols between dates: start={start}, end={end}")
-    step_size = 200
+    step_size = 1000
     results = []
-    for i in range(0, len(symbols), step_size):
-        tasks = []
-        for symbol in symbols[i:i+step_size]:
-            task = rest.get_bars_async(symbol, start, end, timeframe.value, adjustment='raw')
-            tasks.append(task)
 
-        results.extend(await asyncio.gather(*tasks, return_exceptions=True))
+    with tqdm(total=len(symbols), desc="Fetching data") as progress_bar:
+        for i in range(0, len(symbols), step_size):
+            tasks = []
+            for symbol in symbols[i:i+step_size]:
+                task = rest.get_bars_async(symbol, start, end, timeframe.value, adjustment='raw')
+                tasks.append(task)
+
+            responses = await asyncio.gather(*tasks, return_exceptions=True)
+            results.extend([(symbol, response) for symbol, response in responses])
+
+            # Update the progress bar
+            progress_bar.update(len(tasks))
 
     # Call the new function to process and log responses
     await process_and_log_responses(pool, results, symbol_to_stock_id)
@@ -105,12 +96,23 @@ async def main():
                                      database=settings.database_name,
                                      host=settings.database_hostname,
                                      command_timeout=60)
+
     symbol_to_id = await get_symbol_to_id_mapping(pool)
-    start = pd.Timestamp('2022-01-01').date().isoformat()
+    start = pd.Timestamp('2023-01-01').date().isoformat()
     end = pd.Timestamp('2023-11-30').date().isoformat()
     timeframe: TimeFrame = TimeFrame.Minute
-    symbols = [el.symbol for el in api.list_assets() if el.status == "active" and el.tradable][:10]
+    # Fetch symbols from the database
+    symbols = await fetch_tradable_symbols(pool)
     await get_historic_bars(pool, symbols, DataType.Bars, start, end, timeframe, symbol_to_id)
+
+
+async def fetch_tradable_symbols(pool):
+    symbols = []
+    async with pool.acquire() as connection:
+        # Adjust the SQL query according to your database schema
+        rows = await connection.fetch("SELECT symbol FROM stock limit 1000")
+        symbols = [row['symbol'] for row in rows]
+    return symbols
 
 
 if __name__ == '__main__':

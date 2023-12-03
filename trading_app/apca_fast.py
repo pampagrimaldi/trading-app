@@ -11,6 +11,7 @@ import time
 import logging
 import os
 from tqdm import tqdm
+import pandas as pd
 
 # Connect to the database
 conn = psycopg2.connect(f"host={settings.database_hostname} "
@@ -70,15 +71,17 @@ def fetch_and_insert_stock_prices(session: Session, symbols: list):
         api_fetch_duration = end_time_api - start_time_api
         logger.info(f"API fetching time for chunk {i}: {api_fetch_duration} seconds")
 
-        barsets.reset_index(inplace=True)
-        barsets['timestamp'] = barsets['timestamp'].dt.tz_convert(None)
+        # barsets.reset_index(inplace=True)
+        barsets['dt'] = pd.to_datetime(barsets.index).tz_convert(None)
         barsets['stock_id'] = barsets['symbol'].map(symbol_to_stock_id)
 
         if barsets['stock_id'].isnull().any():
             logger.warning("Some 'stock_id' values are NaN")
 
-        barsets = barsets[['stock_id', 'open', 'high', 'low', 'close',
-                           'volume', 'vwap', 'timestamp', 'trade_count']]
+        barsets = barsets[['stock_id', 'dt', 'close',
+                           'high', 'low', 'trade_count', 'open', 'volume', 'vwap']]
+
+        print(barsets.info())
 
         sio = StringIO()
         sio.write(barsets.to_csv(index=None, header=None))
@@ -97,10 +100,11 @@ def fetch_and_insert_stock_prices(session: Session, symbols: list):
         db_write_duration = end_time_db - start_time_db
         logger.info(f"Database writing time for chunk {i}: {db_write_duration} seconds")
 
+
 if __name__ == "__main__":
     # get symbols list with psycopg2
     with conn.cursor() as cur:
-        cur.execute("SELECT symbol FROM public.stock")
+        cur.execute("SELECT symbol FROM public.stock LIMIT 1000")
         symbols = [symbol for symbol, in cur.fetchall()]
 
     # Create a SQLAlchemy session
