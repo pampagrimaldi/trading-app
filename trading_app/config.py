@@ -12,8 +12,11 @@ class Settings(BaseSettings):
     apca_secret_key: str
     apca_api_base_url: str
     polygon_key: str
-
-    # import variables from .env file
+    alphavantage_key: str
+    ibeam_account: str
+    ibeam_password: str
+    quantconnect_token: str
+    quantconnect_user: str
 
     class Config:
         env_file = ".env"

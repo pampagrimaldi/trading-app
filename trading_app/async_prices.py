@@ -11,13 +11,6 @@ import pytz
 url = "https://api.polygon.io/v2/aggs/ticker/{}/range/1/day/2023-11-01/2023-11-02?apiKey={}"
 
 
-def unix_to_ts(unix_msec):
-    # Convert milliseconds to seconds
-    unix_sec = unix_msec / 1000.0
-    # Convert to datetime object
-    dt_object = datetime.fromtimestamp(unix_sec)
-    return dt_object
-
 async def write_to_db(connection, params):
     try:
         await connection.copy_records_to_table('stock_price', records=params)
@@ -36,10 +29,7 @@ async def get_price(pool, stock_id, url):
                     response = json.loads(resp)
                     params = [(stock_id, datetime.fromtimestamp(bar['t'] / 1000.0),
                                round(bar['o'], 2), round(bar['h'], 2), round(bar['l'], 2),
-                               round(bar['c'], 2), bar['v']) for bar in response['results']]
-
-                    for param in params:
-                        print([(type(element), element) for element in param])
+                               round(bar['c'], 2), round(bar['v'], 2)) for bar in response['results']]
 
                     await write_to_db(connection, params)
 
@@ -68,7 +58,7 @@ async def get_stocks():
 
     # get a connection
     async with (pool.acquire() as connection):
-        stocks = await connection.fetch("SELECT * FROM stock LIMIT 1")
+        stocks = await connection.fetch("SELECT * FROM stock")
 
         symbol_urls = {}
         for stock in stocks:

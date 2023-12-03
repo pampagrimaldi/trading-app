@@ -1,6 +1,15 @@
 version: '3.11.5'
 
 services:
+  ibeam:
+    image: voyz/ibeam
+    container_name: ibeam
+    ports:
+      - 5002:5000
+      - 5001:5001
+    network_mode: bridge
+    restart: 'no'
+
   sql:
     image: postgres:16.1
     container_name: postgres

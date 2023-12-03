@@ -88,6 +88,6 @@ if __name__ == '__main__':
     # start time
     start_time = time.time()
     symbols = [el.symbol for el in api.list_assets(status='active')]
-    symbols = symbols[:200]
+    # symbols = symbols[:200]
     asyncio.run(main(symbols))
     print(f"took {time.time() - start_time} sec")

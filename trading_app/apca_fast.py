@@ -1,57 +1,109 @@
 import psycopg2
 from trading_app.config import settings
-import pandas as pd
-import alpaca_trade_api as tradeapi
+from trading_app import models
 from alpaca_trade_api.rest import TimeFrame
 from trading_app.trader import api
+from sqlalchemy.orm import Session
+from datetime import datetime, timedelta
 from io import StringIO
+import time  # Make sure to import the time module
+import time
+import logging
+import os
+from tqdm import tqdm
 
 # Connect to the database
 conn = psycopg2.connect(f"host={settings.database_hostname} "
-                       f"dbname={settings.database_name} "
-                       f"user={settings.database_username} " 
-                       f"password={settings.database_password}")
+                        f"dbname={settings.database_name} "
+                        f"user={settings.database_username} "
+                        f"password={settings.database_password}")
+
+# Setup logging
+def setup_logging():
+    logs_dir = "logs"
+    if not os.path.exists(logs_dir):
+        os.makedirs(logs_dir)
+
+    log_file_path = os.path.join(logs_dir, "stock_price_update.log")
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+
+    file_handler = logging.FileHandler(log_file_path)
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+    logger.addHandler(file_handler)
+    return logger
 
 
-# Create a dataframe
-barsets = api.get_bars(['AAPL'], TimeFrame.Day, "2023-11-23", adjustment="raw").df
-barsets.reset_index(inplace=True)
-barsets['timestamp'] = barsets['timestamp'].dt.tz_convert(None)
+logger = setup_logging()
 
 
-# Fetch the symbol to stock_id mapping
-with conn.cursor() as cur:
-    cur.execute("SELECT symbol, id FROM public.stock")
-    symbol_to_stock_id = {symbol: stock_id for symbol, stock_id in cur.fetchall()}
+def get_latest_data_date(session):
+    """
+    Returns the latest date for which data is available.
+    If no data is found, returns None.
+    """
+    latest_data = ((session
+                    .query(models.StockPrice)
+                    .join(models.Stock)
+                    .order_by(models.StockPrice.timestamp.desc()).first()))
 
-# print("Symbol to stock_id mapping:", symbol_to_stock_id)  # Debug: Print the mapping
-
-# Map 'symbol' to 'stock_id'
-barsets['stock_id'] = barsets['symbol'].map(symbol_to_stock_id)
-
-# Check for any NaN values in 'stock_id' after mapping
-if barsets['stock_id'].isnull().any():
-    print("Warning: Some 'stock_id' values are NaN")
-
-# Select and reorder DataFrame columns to match the table schema
-barsets = barsets[['stock_id', 'open', 'high', 'low',
-                   'close', 'volume', 'vwap', 'timestamp', 'trade_count']]
-
-# print(barsets.info())
-
-# Initialize a string buffer
-sio = StringIO()
-sio.write(barsets.to_csv(index=None, header=None))  # Write the Pandas DataFrame as a csv to the buffer
-sio.seek(0)  # Be sure to reset the position to the start of the stream
+    return latest_data.timestamp if latest_data else None
 
 
-# Copy the string buffer to the database, as if it were an actual file
-with conn.cursor() as c:
-    try:
-        c.copy_from(sio, "stock_price", columns=barsets.columns, sep=',')
-        conn.commit()
+# Function to fetch and insert stock prices
+def fetch_and_insert_stock_prices(session: Session, symbols: list):
+    with conn.cursor() as cur:
+        cur.execute("SELECT symbol, id FROM public.stock")
+        symbol_to_stock_id = {symbol: stock_id for symbol, stock_id in cur.fetchall()}
 
-    except Exception as e:
-        print(e)
-        conn.rollback()
+    start_str = (datetime.now() - timedelta(days=365 * 2)).strftime('%Y-%m-%d')  # Two years ago
 
+    chunk_size = 200
+    for i in tqdm(range(0, len(symbols), chunk_size)):
+        chunk_symbols = symbols[i:i + chunk_size]
+
+        # Measure API fetching time
+        start_time_api = time.time()
+        barsets = api.get_bars(chunk_symbols, TimeFrame.Day, start_str, adjustment="raw").df
+        end_time_api = time.time()
+        api_fetch_duration = end_time_api - start_time_api
+        logger.info(f"API fetching time for chunk {i}: {api_fetch_duration} seconds")
+
+        barsets.reset_index(inplace=True)
+        barsets['timestamp'] = barsets['timestamp'].dt.tz_convert(None)
+        barsets['stock_id'] = barsets['symbol'].map(symbol_to_stock_id)
+
+        if barsets['stock_id'].isnull().any():
+            logger.warning("Some 'stock_id' values are NaN")
+
+        barsets = barsets[['stock_id', 'open', 'high', 'low', 'close',
+                           'volume', 'vwap', 'timestamp', 'trade_count']]
+
+        sio = StringIO()
+        sio.write(barsets.to_csv(index=None, header=None))
+        sio.seek(0)
+
+        # Measure database writing time
+        start_time_db = time.time()
+        with conn.cursor() as c:
+            try:
+                c.copy_from(sio, "stock_price", columns=barsets.columns, sep=',')
+                conn.commit()
+            except Exception as e:
+                logger.error(e)
+                conn.rollback()
+        end_time_db = time.time()
+        db_write_duration = end_time_db - start_time_db
+        logger.info(f"Database writing time for chunk {i}: {db_write_duration} seconds")
+
+if __name__ == "__main__":
+    # get symbols list with psycopg2
+    with conn.cursor() as cur:
+        cur.execute("SELECT symbol FROM public.stock")
+        symbols = [symbol for symbol, in cur.fetchall()]
+
+    # Create a SQLAlchemy session
+    with Session() as session:
+        # Fetch and insert stock prices
+        fetch_and_insert_stock_prices(session, symbols)

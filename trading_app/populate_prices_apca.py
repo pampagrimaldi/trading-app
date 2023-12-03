@@ -10,6 +10,7 @@ from trading_app.trader import api
 from tqdm import tqdm
 
 
+
 # Setup logging
 def setup_logging():
     logs_dir = "path_to_logs_directory"
@@ -95,6 +96,7 @@ def fetch_and_insert_stock_prices(session: Session, symbols: list):
         except Exception as e:
             logger.error(f"Error in chunk starting at index {i}: {e}")
             session.rollback()
+
 
 def main():
     try:
