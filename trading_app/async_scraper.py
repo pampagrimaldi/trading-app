@@ -2,6 +2,7 @@ import asyncio
 import aiohttp
 from bs4 import BeautifulSoup
 import time
+import re
 
 base_url = "https://www.interactivebrokers.com/"
 first_page_url = "/en/index.php?f=2222&exch=asx&showcategories=STK&p=&ptab=&cc=&limit=100&page=1"
@@ -19,10 +20,18 @@ async def parse_page(html):
         columns = row.find_all('td')
         if columns:
             ib_symbol = columns[0].text.strip()
-            product_description = columns[1].text.strip()
+
+            # Extract URL from the 'a' tag in the product description
+            product_link_tag = columns[1].find('a')
+            product_description = product_link_tag.text.strip()
+            onclick_attr = product_link_tag.get('href', '')
+            # Extract URL using regular expression
+            url_match = re.search(r"'(https?://[^']*)'", onclick_attr)
+            product_url = url_match.group(1) if url_match else 'No URL found'
             symbol = columns[2].text.strip()
             currency = columns[3].text.strip()
-            print(f"IB Symbol: {ib_symbol}, Product Description: {product_description}, Symbol: {symbol}, Currency: {currency}")
+            print(
+                f"IB Symbol: {ib_symbol}, Product Description: {product_description}, URL: {product_url}, Symbol: {symbol}, Currency: {currency}")
     return soup
 
 
