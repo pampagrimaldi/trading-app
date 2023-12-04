@@ -81,8 +81,6 @@ def fetch_and_insert_stock_prices(session: Session, symbols: list):
         barsets = barsets[['stock_id', 'dt', 'close',
                            'high', 'low', 'trade_count', 'open', 'volume', 'vwap']]
 
-        print(barsets.info())
-
         sio = StringIO()
         sio.write(barsets.to_csv(index=None, header=None))
         sio.seek(0)
@@ -104,7 +102,7 @@ def fetch_and_insert_stock_prices(session: Session, symbols: list):
 if __name__ == "__main__":
     # get symbols list with psycopg2
     with conn.cursor() as cur:
-        cur.execute("SELECT symbol FROM public.stock LIMIT 1000")
+        cur.execute("SELECT symbol FROM public.stock")
         symbols = [symbol for symbol, in cur.fetchall()]
 
     # Create a SQLAlchemy session

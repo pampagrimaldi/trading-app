@@ -5,6 +5,7 @@ from trading_app.trader import api
 from sqlalchemy.orm import Session
 import logging
 import os
+from tqdm import tqdm
 
 # Setup logging
 script_dir = os.path.dirname(os.path.realpath(__file__))
@@ -31,9 +32,11 @@ logger.addHandler(file_handler)
 
 # Function to insert stock data
 def insert_stock_data(session: Session, symbol: str, company: str, new_stock_added):
-    existing_stock = (
-        session.query(models.Stock).filter(models.Stock.symbol == symbol).first()
-    )
+    existing_stock = (session
+                      .query(models.Stock)
+                      .filter(models.Stock.symbol == symbol)
+                      .first())
+
     if not existing_stock:
         new_stock = models.Stock(symbol=symbol, company=company)
         session.add(new_stock)
@@ -42,14 +45,16 @@ def insert_stock_data(session: Session, symbol: str, company: str, new_stock_add
 
 
 try:
-    assets = api.list_assets(asset_class="us_equity")
+    # Fetch assets and limit to the first 2000
+    all_assets = api.list_assets(asset_class="us_equity",
+                                 status="active")
+
+    filtered_assets = [asset for asset in all_assets if asset.tradable][:5000]
 
     new_stock_added = []  # List to track if new stocks are added
-
     with SessionLocal() as session:
-        for asset in assets:
-            if asset.status == "active" and asset.tradable:
-                insert_stock_data(session, asset.symbol, asset.name, new_stock_added)
+        for asset in tqdm(filtered_assets):
+            insert_stock_data(session, asset.symbol, asset.name, new_stock_added)
 
         session.commit()
         logger.info("Database update completed successfully.")
