@@ -47,13 +47,13 @@ def get_latest_data_date(session):
     latest_data = ((session
                     .query(models.StockPrice)
                     .join(models.Stock)
-                    .order_by(models.StockPrice.timestamp.desc()).first()))
+                    .order_by(models.StockPrice.dt.desc()).first()))
 
     return latest_data.timestamp if latest_data else None
 
 
 # Function to fetch and insert stock prices
-def fetch_and_insert_stock_prices(session: Session, symbols: list):
+def fetch_and_insert_stock_prices(symbols: list):
     with conn.cursor() as cur:
         cur.execute("SELECT symbol, id FROM public.stock")
         symbol_to_stock_id = {symbol: stock_id for symbol, stock_id in cur.fetchall()}
@@ -107,5 +107,6 @@ if __name__ == "__main__":
 
     # Create a SQLAlchemy session
     with Session() as session:
+
         # Fetch and insert stock prices
-        fetch_and_insert_stock_prices(session, symbols)
+        fetch_and_insert_stock_prices(symbols)
