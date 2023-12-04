@@ -19,6 +19,9 @@ class Stock(Base):
     symbol = Column(String, unique=True, nullable=False)
     company = Column(String, nullable=False)
 
+    # Define the relationship (optional, if you need to access StockPrice from Stock)
+    stock_prices = relationship("StockPrice", back_populates="stock")
+
 
 class StockPrice(Base):
     __tablename__ = 'stock_price'

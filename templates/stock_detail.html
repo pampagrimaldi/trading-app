@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Stock Detail</title>
+</head>
+<body>
+    <h1>Stock Detail</h1>
+    <p>Symbol: {{ stock.symbol }}</p>
+    <p>Company: {{ stock.company }}</p>
+
+    <h2>Price History</h2>
+    {% for price in stock.stock_prices %}
+            Open: {{ price.open }},
+            High: {{ price.high }},
+            Low: {{ price.low }},
+            Close: {{ price.close }},
+            Volume: {{ price.volume }},
+            Date: {{ price.dt }}
+    {% endfor %}
+    </ul>
+</body>
+</html>

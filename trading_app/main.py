@@ -1,8 +1,7 @@
 # import FastAPI and other libraries
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-# from .routers import topics, questions, suburbs, user, bulk, multiplayer, places
-
+from .routers import data
 
 # create FastAPI instance
 app = FastAPI()
@@ -16,6 +15,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# app.include_router(auth.router)
+app.include_router(data.router)
 
 
 # test
