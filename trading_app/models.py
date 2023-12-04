@@ -18,6 +18,7 @@ class Stock(Base):
     id = Column(Integer, primary_key=True, index=True)
     symbol = Column(String, unique=True, nullable=False)
     company = Column(String, nullable=False)
+    exchange = Column(String, nullable=False)
 
     # Define the relationship (optional, if you need to access StockPrice from Stock)
     stock_prices = relationship("StockPrice", back_populates="stock")
