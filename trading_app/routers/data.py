@@ -34,16 +34,25 @@ def get_all_stocks(request: Request, db: Session = Depends(get_db)):
 @router.get("/stock_table/{symbol}")
 def get_stock(request: Request, symbol: str, db: Session = Depends(get_db)):
     try:
-        stock = (db.query(models.Stock)
-                 .options(joinedload(models.Stock.stock_prices))
-                 .filter(models.Stock.symbol == symbol).first())
+        # Query the Stock table
+        stock = (db
+                 .query(models.Stock)
+                 .filter(models.Stock.symbol == symbol)
+                 .first())
 
         if stock is None:
             raise HTTPException(status_code=404, detail="Stock not found")
 
-        template_response = (templates
-                             .TemplateResponse("stock_detail.html", {"request": request,
-                                                                     "stock": stock}))
+        # Query the StockPrice table separately, ordering by 'dt'
+        stock_prices = (db.query(models.StockPrice)
+                        .filter(models.StockPrice.stock_id == stock.id)
+                        .order_by(models.StockPrice.dt.desc())
+                        .all())
+
+        template_response = templates.TemplateResponse("stock_detail.html",
+                                                      {"request": request,
+                                                       "stock": stock,
+                                                       "stock_prices": stock_prices})
 
         return template_response
     except IntegrityError as e:
