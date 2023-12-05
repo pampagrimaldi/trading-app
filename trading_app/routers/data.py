@@ -1,4 +1,5 @@
-from fastapi import HTTPException, Depends, APIRouter, Request
+from fastapi import HTTPException, Depends, APIRouter, Request, Form
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from trading_app import models
 from trading_app.database import get_db
@@ -72,6 +73,9 @@ def get_stock(request: Request, symbol: str, db: Session = Depends(get_db)):
                  .filter(models.Stock.symbol == symbol)
                  .first())
 
+        # Strategies
+        strategies = db.query(models.Strategy).all()
+
         if stock is None:
             raise HTTPException(status_code=404, detail="Stock not found")
 
@@ -84,8 +88,24 @@ def get_stock(request: Request, symbol: str, db: Session = Depends(get_db)):
         template_response = templates.TemplateResponse("stock_detail.html",
                                                       {"request": request,
                                                        "stock": stock,
-                                                       "stock_prices": stock_prices})
+                                                       "stock_prices": stock_prices,
+                                                       "strategies": strategies})
 
         return template_response
+    except IntegrityError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/apply_strategy")
+def apply_strategy(stock_id: int, strategy_id: int = Form(...), db: Session = Depends(get_db)):
+    # insert into the stock_strategy table
+    try:
+        # Create the StockStrategy object
+        stock_strategy = models.StockStrategy(stock_id=stock_id, strategy_id=strategy_id)
+        # Add the StockStrategy object to the session
+        db.add(stock_strategy)
+        db.commit()
+        # Redirect to the stock detail page for the stock that was just updated
+        return RedirectResponse(url=f"/strategy/{strategy_id}", status_code=303)
     except IntegrityError as e:
         raise HTTPException(status_code=400, detail=str(e))
