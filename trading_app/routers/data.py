@@ -4,7 +4,7 @@ from trading_app import models
 from trading_app.database import get_db
 from sqlalchemy.exc import IntegrityError
 from fastapi.templating import Jinja2Templates
-from sqlalchemy.orm import joinedload
+from sqlalchemy import func, and_
 
 router = APIRouter(
     prefix="/data",
@@ -13,14 +13,60 @@ router = APIRouter(
 
 templates = Jinja2Templates(directory="templates")
 
-
 @router.get("/stock_table")
 def get_all_stocks(request: Request, db: Session = Depends(get_db)):
-    try:
+    stock_filter = request.query_params.get("filter", False)
+    # Query the most recent date in the stock_price table and format it as a date
+    most_recent_date = db.query(func.date(func.max(models.StockPrice.dt))).scalar()
+    print(f"Most recent date being used for filtering: {most_recent_date}")
+    if stock_filter == 'new_closing_highs':
+        # Define a CTE for the maximum close price
+        MaxClosePrice = (db
+                         .query(models.StockPrice.stock_id,func.max(models.StockPrice.close).label('max_close'))
+                         .group_by(models.StockPrice.stock_id)
+                         .cte('MaxClosePrice'))
+
+        # Construct the main query
+        query = (db
+                 .query(models.Stock.symbol,models.Stock.company,models.StockPrice.stock_id,MaxClosePrice.c.max_close,
+                        models.StockPrice.dt)
+                 .join(MaxClosePrice, and_(models.StockPrice.stock_id == MaxClosePrice.c.stock_id,
+                                           models.StockPrice.close == MaxClosePrice.c.max_close))
+                 .join(models.Stock, models.Stock.id == models.StockPrice.stock_id)
+                 .filter(func.date(models.StockPrice.dt) == most_recent_date)
+                 .order_by(models.Stock.company.asc()))
+
+        # Execute the query
+        stocks = query.all()
+
+    elif stock_filter == 'new_closing_lows':
+        # Define a CTE for the Minimum close price
+        MinClosePrice = (db
+                         .query(models.StockPrice.stock_id, func.min(models.StockPrice.close).label('min_close'))
+                         .group_by(models.StockPrice.stock_id)
+                         .cte('MinClosePrice'))
+
+        # Construct the main query
+        query = (db
+                 .query(models.Stock.symbol, models.Stock.company, models.StockPrice.stock_id,
+                        MinClosePrice.c.min_close,
+                        models.StockPrice.dt)
+                 .join(MinClosePrice, and_(models.StockPrice.stock_id == MinClosePrice.c.stock_id,
+                                           models.StockPrice.close == MinClosePrice.c.min_close))
+                 .join(models.Stock, models.Stock.id == models.StockPrice.stock_id)
+                 .filter(func.date(models.StockPrice.dt) == most_recent_date)
+                 .order_by(models.Stock.company.asc()))
+
+        # Execute the query
+        stocks = query.all()
+
+    else:
         stocks = (db
                   .query(models.Stock)
                   .order_by(models.Stock.company.asc())
                   .all())
+
+    try:
 
         template_response = (templates
                              .TemplateResponse("index.html",
