@@ -36,3 +36,18 @@ class StockPrice(Base):
     vwap = Column(Numeric(10, 4), nullable=False)
 
     stock = relationship("Stock")
+
+
+class Strategy(Base):
+    __tablename__ = 'strategy'
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+
+
+class StockStrategy(Base):
+    __tablename__ = 'stock_strategy'
+    stock_id = Column(Integer, ForeignKey('stock.id'), primary_key=True)
+    strategy_id = Column(Integer, ForeignKey('strategy.id'), primary_key=True)
+
+    stock = relationship("Stock")
+    strategy = relationship("Strategy")
