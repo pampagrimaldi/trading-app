@@ -157,6 +157,12 @@ async def save_to_database(ib_symbol, symbol, stock_info, contract):
                 raise  # Optionally re-raise the exception to handle it at a higher level
 
 
+async def fetch_existing_ib_symbols():
+    async with SessionLocalAsync() as session:
+        result = await session.execute(select(models.Stock.ib_symbol))
+        return {row[0] for row in result.fetchall()}
+
+
 async def main():
     async with aiohttp.ClientSession() as session:
         # Scrape symbols
@@ -164,13 +170,19 @@ async def main():
         symbols_data = await scrape_symbols()
         print('Scraping complete.')
 
-        # Process each symbol in batches with tqdm progress bar
+        # Fetch existing ib_symbols from the database
+        existing_ib_symbols = await fetch_existing_ib_symbols()
+
+        # Process each symbol in batches
         batch_size = 40
         total_batches = (len(symbols_data) + batch_size - 1) // batch_size
 
         print('Processing symbols...')
         async for i in tqdm(range(0, len(symbols_data), batch_size), total=total_batches, desc="Processing symbols"):
-            batch = symbols_data[i:i + batch_size]
+            # batch excludes symbols that already exist in the database
+            batch = [(ib_symbol, symbol) for ib_symbol, symbol in symbols_data[i:i + batch_size]
+                     if ib_symbol not in existing_ib_symbols]
+            # gather all the tasks in the batch
             tasks = [process_stock_data(session, ib_symbol, symbol) for ib_symbol, symbol in batch]
             await asyncio.gather(*tasks)
             await asyncio.sleep(1)  # Wait 1 second between each batch
