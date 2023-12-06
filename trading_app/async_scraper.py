@@ -1,12 +1,25 @@
 import asyncio
+from sqlalchemy import select
+from aiohttp.client_exceptions import ClientResponseError
 import aiohttp
 from bs4 import BeautifulSoup
 import time
-import re
+from trading_app.database import SessionLocalAsync
+from trading_app import models
+from tqdm.asyncio import tqdm
+import logging
+
+# Set logging level
+logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
+
+# Async Scraper
 
 base_url = "https://www.interactivebrokers.com/"
 first_page_url = "/en/index.php?f=2222&exch=asx&showcategories=STK&p=&ptab=&cc=&limit=100&page=1"
 
+# Dictionary to store the results
+stocks_dict = {}
+processed_symbols = set()
 
 async def fetch_page(session, url):
     async with session.get(url) as response:
@@ -20,18 +33,11 @@ async def parse_page(html):
         columns = row.find_all('td')
         if columns:
             ib_symbol = columns[0].text.strip()
-
-            # Extract URL from the 'a' tag in the product description
-            product_link_tag = columns[1].find('a')
-            product_description = product_link_tag.text.strip()
-            onclick_attr = product_link_tag.get('href', '')
-            # Extract URL using regular expression
-            url_match = re.search(r"'(https?://[^']*)'", onclick_attr)
-            product_url = url_match.group(1) if url_match else 'No URL found'
             symbol = columns[2].text.strip()
-            currency = columns[3].text.strip()
-            print(
-                f"IB Symbol: {ib_symbol}, Product Description: {product_description}, URL: {product_url}, Symbol: {symbol}, Currency: {currency}")
+
+            # Update the dictionary
+            stocks_dict[ib_symbol] = symbol
+
     return soup
 
 
@@ -52,15 +58,101 @@ async def get_page_urls(session, first_page_url):
     return urls
 
 
-async def main():
+async def scrape_symbols():
     async with aiohttp.ClientSession() as session:
         page_urls = await get_page_urls(session, base_url + first_page_url)
-
         tasks = [asyncio.create_task(fetch_page(session, url)) for url in page_urls]
         pages = await asyncio.gather(*tasks)
 
         for page_html in pages:
             await parse_page(page_html)
+
+    return [(ib_symbol, symbol) for ib_symbol, symbol in stocks_dict.items()]
+
+# Semaphore to limit the number of requests
+semaphore = asyncio.Semaphore(5)
+
+
+async def fetch_contract_details(session, symbol, max_retries=5):
+    url = f"https://localhost:5002/v1/api/trsrv/stocks?symbols={symbol}"
+    retries = 0
+    while retries < max_retries:
+        async with semaphore, session.get(url, ssl=False) as response:
+            try:
+                response.raise_for_status()
+                if 'application/json' not in response.headers.get('Content-Type', ''):
+                    print(f"Non-JSON response received: {await response.text()}")
+                    return None
+                return await response.json()
+            except ClientResponseError as e:
+                if e.status == 429:
+                    retries += 1
+                    retry_after = int(response.headers.get('Retry-After', '1'))
+                    print(f"Rate limit hit, retrying in {retry_after} seconds...")
+                    await asyncio.sleep(retry_after)
+                else:
+                    print(f"Error fetching details for {symbol}: {e.status}")
+                    return None
+    print(f"Max retries hit for symbol {symbol}")
+    return None
+
+
+async def process_stock_data(session, ib_symbol, symbol):
+    # Check if the symbol has already been processed
+    if symbol in processed_symbols:
+        print(f"Duplicate symbol found: {symbol}")
+        return
+    processed_symbols.add(symbol)
+    stock_data = await fetch_contract_details(session, symbol)
+
+    if stock_data is None:
+        print(f"No data received for symbol {symbol}")
+        return
+
+    for stock_info in stock_data.get(symbol, []):
+        if stock_info.get("assetClass") == "STK":
+            for contract in stock_info.get("contracts", []):
+                if contract.get("exchange") == "ASX":
+                    await save_to_database(ib_symbol, symbol, stock_info, contract)
+
+
+async def save_to_database(ib_symbol, symbol, stock_info, contract):
+    async with SessionLocalAsync() as session:
+        async with session.begin():
+            try:
+                # Check if the stock with this ib_symbol already exists
+                result = await session.execute(select(models.Stock).where(models.Stock.ib_symbol == ib_symbol))
+                existing_stock = result.scalar_one_or_none()
+
+                if not existing_stock:
+                    new_stock = models.Stock(
+                        ib_symbol=ib_symbol,
+                        symbol=symbol,
+                        name=stock_info.get("name"),
+                        asset_class=stock_info.get("assetClass"),
+                        conid=contract.get("conid"),
+                        exchange=contract.get("exchange"),
+                        is_us=contract.get("isUS")
+                    )
+                    session.add(new_stock)
+            except Exception as e:
+                await session.rollback()  # Rollback the transaction in case of an error
+                print(f"Error while saving to database: {e}")
+                raise  # Optionally re-raise the exception to handle it at a higher level
+
+
+async def main():
+    async with aiohttp.ClientSession() as session:
+        # Scrape symbols
+        print('Scraping symbols...')
+        symbols_data = await scrape_symbols()
+        print('Scraping complete.')
+
+        # Process each symbol
+        print('Processing symbols...')
+        tasks = [process_stock_data(session, ib_symbol, symbol) for ib_symbol, symbol in symbols_data]
+        await asyncio.gather(*tasks)
+        print('Processing complete.')
 
 if __name__ == '__main__':
 
