@@ -72,7 +72,7 @@ async def scrape_symbols():
     return [(ib_symbol, symbol) for ib_symbol, symbol in stocks_dict.items()]
 
 # Semaphore to limit the number of requests
-semaphore = asyncio.Semaphore(5)
+semaphore = asyncio.Semaphore(45)
 
 
 async def fetch_contract_details(session, symbol, max_retries=5):
@@ -150,6 +150,10 @@ async def save_to_database(ib_symbol, symbol, stock_info, contract):
                 raise  # Optionally re-raise the exception to handle it at a higher level
 
 
+import asyncio
+from tqdm.asyncio import tqdm
+# ... other imports ...
+
 async def main():
     async with aiohttp.ClientSession() as session:
         # Scrape symbols
@@ -157,14 +161,19 @@ async def main():
         symbols_data = await scrape_symbols()
         print('Scraping complete.')
 
-        # Process each symbol in batches
-        for i in range(0, len(symbols_data), 40):
-            batch = symbols_data[i:i+40]
+        # Process each symbol in batches with tqdm progress bar
+        batch_size = 45
+        total_batches = (len(symbols_data) + batch_size - 1) // batch_size
+
+        print('Processing symbols...')
+        async for i in tqdm(range(0, len(symbols_data), batch_size), total=total_batches, desc="Processing symbols"):
+            batch = symbols_data[i:i + batch_size]
             tasks = [process_stock_data(session, ib_symbol, symbol) for ib_symbol, symbol in batch]
             await asyncio.gather(*tasks)
-            await asyncio.sleep(1)  # Wait 1 second between each batch of 50 requests
+            await asyncio.sleep(1)  # Wait 1 second between each batch
 
         print('Processing complete.')
+
 
 if __name__ == '__main__':
 

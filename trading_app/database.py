@@ -28,7 +28,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 # set async engine
-engine_async = create_async_engine(SQLALCHEMY_DATABASE_URL_ASYNC, echo=True)
+engine_async = create_async_engine(SQLALCHEMY_DATABASE_URL_ASYNC, echo=False)
 # create async session
 SessionLocalAsync = sessionmaker(expire_on_commit=False, class_=AsyncSession, bind=engine_async)
 
@@ -45,7 +45,7 @@ def get_db():
 
 
 def get_db_async():
-    db = SessionLocal()
+    db = SessionLocalAsync()
     try:
         yield db
     finally:
