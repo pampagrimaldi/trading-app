@@ -72,7 +72,7 @@ async def scrape_symbols():
     return [(ib_symbol, symbol) for ib_symbol, symbol in stocks_dict.items()]
 
 # Semaphore to limit the number of requests
-semaphore = asyncio.Semaphore(45)
+semaphore = asyncio.Semaphore(40)
 
 
 async def fetch_contract_details(session, symbol, max_retries=5):
@@ -105,6 +105,13 @@ async def process_stock_data(session, ib_symbol, symbol, batch_delay=1, max_retr
         print(f"Duplicate symbol found: {symbol}")
         return
     processed_symbols.add(symbol)
+
+    # Database check for existing stock with the same ib_symbol
+    async with SessionLocalAsync() as check_session:
+        result = await check_session.execute(select(models.Stock).where(models.Stock.ib_symbol == ib_symbol))
+        if result.scalar_one_or_none():
+            print(f"Stock with ib_symbol {ib_symbol} already exists. Skipping.")
+            return
 
     retries = 0
     while retries < max_retries:
@@ -150,10 +157,6 @@ async def save_to_database(ib_symbol, symbol, stock_info, contract):
                 raise  # Optionally re-raise the exception to handle it at a higher level
 
 
-import asyncio
-from tqdm.asyncio import tqdm
-# ... other imports ...
-
 async def main():
     async with aiohttp.ClientSession() as session:
         # Scrape symbols
@@ -162,7 +165,7 @@ async def main():
         print('Scraping complete.')
 
         # Process each symbol in batches with tqdm progress bar
-        batch_size = 45
+        batch_size = 40
         total_batches = (len(symbols_data) + batch_size - 1) // batch_size
 
         print('Processing symbols...')
