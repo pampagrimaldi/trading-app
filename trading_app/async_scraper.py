@@ -8,6 +8,7 @@ from trading_app.database import SessionLocalAsync
 from trading_app import models
 from tqdm.asyncio import tqdm
 import logging
+import random
 
 # Set logging level
 logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
@@ -20,6 +21,7 @@ first_page_url = "/en/index.php?f=2222&exch=asx&showcategories=STK&p=&ptab=&cc=&
 # Dictionary to store the results
 stocks_dict = {}
 processed_symbols = set()
+
 
 async def fetch_page(session, url):
     async with session.get(url) as response:
@@ -97,23 +99,30 @@ async def fetch_contract_details(session, symbol, max_retries=5):
     return None
 
 
-async def process_stock_data(session, ib_symbol, symbol):
+async def process_stock_data(session, ib_symbol, symbol, batch_delay=1, max_retries=5):
     # Check if the symbol has already been processed
     if symbol in processed_symbols:
         print(f"Duplicate symbol found: {symbol}")
         return
     processed_symbols.add(symbol)
-    stock_data = await fetch_contract_details(session, symbol)
 
-    if stock_data is None:
-        print(f"No data received for symbol {symbol}")
-        return
-
-    for stock_info in stock_data.get(symbol, []):
-        if stock_info.get("assetClass") == "STK":
-            for contract in stock_info.get("contracts", []):
-                if contract.get("exchange") == "ASX":
-                    await save_to_database(ib_symbol, symbol, stock_info, contract)
+    retries = 0
+    while retries < max_retries:
+        try:
+            stock_data = await fetch_contract_details(session, symbol)
+            if stock_data:
+                for stock_info in stock_data.get(symbol, []):
+                    if stock_info.get("assetClass") == "STK":
+                        for contract in stock_info.get("contracts", []):
+                            if contract.get("exchange") == "ASX":
+                                await save_to_database(ib_symbol, symbol, stock_info, contract)
+                break
+            else:
+                raise Exception("No data received")
+        except Exception as e:
+            print(f"Error fetching details for {symbol}: {e}")
+            retries += 1
+            await asyncio.sleep(batch_delay * (2 ** retries) + random.uniform(0, 1))
 
 
 async def save_to_database(ib_symbol, symbol, stock_info, contract):
@@ -148,10 +157,13 @@ async def main():
         symbols_data = await scrape_symbols()
         print('Scraping complete.')
 
-        # Process each symbol
-        print('Processing symbols...')
-        tasks = [process_stock_data(session, ib_symbol, symbol) for ib_symbol, symbol in symbols_data]
-        await asyncio.gather(*tasks)
+        # Process each symbol in batches
+        for i in range(0, len(symbols_data), 40):
+            batch = symbols_data[i:i+40]
+            tasks = [process_stock_data(session, ib_symbol, symbol) for ib_symbol, symbol in batch]
+            await asyncio.gather(*tasks)
+            await asyncio.sleep(1)  # Wait 1 second between each batch of 50 requests
+
         print('Processing complete.')
 
 if __name__ == '__main__':
