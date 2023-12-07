@@ -12,9 +12,10 @@ import random
 
 # Constants
 BASE_URL = "https://localhost:5002/v1/api/iserver/marketdata/history"
-PERIOD = "1d"
-BAR = "1min"
-SEM_LIMIT = 5  # Semaphore limit
+PERIOD = "1y"
+BAR = "1d"
+SEM_LIMIT = 45  # Semaphore limit
+CHUNK_SIZE = 45  # Number of stocks to process in parallel
 
 # Semaphore for rate-limiting
 semaphore = asyncio.Semaphore(SEM_LIMIT)
@@ -22,8 +23,6 @@ semaphore = asyncio.Semaphore(SEM_LIMIT)
 # Fetch historical data for a stock
 async def fetch_historical_data(session, conid, max_retries=1):
     url = f"{BASE_URL}?conid={conid}&period={PERIOD}&bar={BAR}"
-    print("=== debugging url ===")
-    print(url)
     retries = 0
     while retries < max_retries:
         async with semaphore, session.get(url, ssl=False) as response:
@@ -44,6 +43,9 @@ async def fetch_historical_data(session, conid, max_retries=1):
                     await asyncio.sleep(1 ** retries + random.uniform(0, 1))
                     retries +=1
                     continue
+                elif e.status == 500:
+                    # Silently handle 500 errors
+                    return None
                 else:
                     print(f"Error fetching price data for conid {conid}: {e.status}")
                     return None
@@ -55,6 +57,10 @@ async def fetch_historical_data(session, conid, max_retries=1):
 async def process_stock_data(session, stock_id, conid):
     try:
         historical_data = await fetch_historical_data(session, conid, max_retries=2)
+
+        if historical_data is None:
+            return []
+
         return [
             StockPrice(
                 stock_id=stock_id,
@@ -82,23 +88,23 @@ async def bulk_insert_prices(stock_prices):
 
 async def main():
     async with aiohttp.ClientSession() as session:
-        # Fetch existing stock symbols from the database
         async with SessionLocalAsync() as db_session:
             result = await db_session.execute(select(Stock))
             stocks = result.scalars().all()
-            # debug by only testing on 1 stock of ib_symbol = BHP
-            # stocks = [stock for stock in stocks if stock.ib_symbol == 'BHP']
-            # for each in stocks:
-            #     print(f'stock conid {each.conid} and ib_symbol {type(each.ib_symbol)}')
 
-        # Process each stock symbol
-        tasks = [process_stock_data(session, stock.id, stock.conid) for stock in stocks]
-        all_prices = await asyncio.gather(*tasks)
-        # Flatten list of lists
-        all_prices = [price for sublist in all_prices for price in sublist if sublist]
+        # Process stocks in chunks
+        for i in range(0, len(stocks), CHUNK_SIZE):
+            chunk = stocks[i:i + CHUNK_SIZE]
+            tasks = [process_stock_data(session, stock.id, stock.conid) for stock in chunk]
+            all_prices_chunk = await asyncio.gather(*tasks)
+            all_prices_chunk = [price for sublist in all_prices_chunk for price in sublist if sublist]
 
-        # Bulk insert into the database
-        await bulk_insert_prices(all_prices)
+            # Bulk insert for each chunk
+            await bulk_insert_prices(all_prices_chunk)
+            print(f"Processed chunk {i // CHUNK_SIZE + 1}/{len(stocks) // CHUNK_SIZE}")
+
+            # Optional delay between chunks to avoid rate limit
+            # await asyncio.sleep(1)
 
 if __name__ == "__main__":
     start_time = time.time()
