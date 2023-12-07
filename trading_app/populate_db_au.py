@@ -5,7 +5,7 @@ import aiohttp
 from bs4 import BeautifulSoup
 import time
 from trading_app.database import SessionLocalAsync
-from trading_app import models
+from trading_app.models import Stock
 from tqdm.asyncio import tqdm
 import logging
 import random
@@ -108,7 +108,7 @@ async def process_stock_data(session, ib_symbol, symbol, batch_delay=1, max_retr
 
     # Database check for existing stock with the same ib_symbol
     async with SessionLocalAsync() as check_session:
-        result = await check_session.execute(select(models.Stock).where(models.Stock.ib_symbol == ib_symbol))
+        result = await check_session.execute(select(Stock).where(Stock.ib_symbol == ib_symbol))
         if result.scalar_one_or_none():
             print(f"Stock with ib_symbol {ib_symbol} already exists. Skipping.")
             return
@@ -137,11 +137,11 @@ async def save_to_database(ib_symbol, symbol, stock_info, contract):
         async with session.begin():
             try:
                 # Check if the stock with this ib_symbol already exists
-                result = await session.execute(select(models.Stock).where(models.Stock.ib_symbol == ib_symbol))
+                result = await session.execute(select(Stock).where(Stock.ib_symbol == ib_symbol))
                 existing_stock = result.scalar_one_or_none()
 
                 if not existing_stock:
-                    new_stock = models.Stock(
+                    new_stock = Stock(
                         ib_symbol=ib_symbol,
                         symbol=symbol,
                         name=stock_info.get("name"),
@@ -159,7 +159,7 @@ async def save_to_database(ib_symbol, symbol, stock_info, contract):
 
 async def fetch_existing_ib_symbols():
     async with SessionLocalAsync() as session:
-        result = await session.execute(select(models.Stock.ib_symbol))
+        result = await session.execute(select(Stock.ib_symbol))
         return {row[0] for row in result.fetchall()}
 
 
