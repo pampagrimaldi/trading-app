@@ -1,6 +1,7 @@
 import asyncio
 import aiohttp
 from datetime import datetime
+import pytz
 from sqlalchemy import select
 from trading_app.database import SessionLocalAsync
 from trading_app.models import Stock, StockPrice
@@ -11,13 +12,12 @@ import random
 
 # Constants
 BASE_URL = "https://localhost:5002/v1/api/iserver/marketdata/history"
-PERIOD = "1y"
-BAR = "1d"
+PERIOD = "1d"
+BAR = "1min"
 SEM_LIMIT = 5  # Semaphore limit
 
 # Semaphore for rate-limiting
 semaphore = asyncio.Semaphore(SEM_LIMIT)
-
 
 # Fetch historical data for a stock
 async def fetch_historical_data(session, conid, max_retries=1):
@@ -86,10 +86,10 @@ async def main():
         async with SessionLocalAsync() as db_session:
             result = await db_session.execute(select(Stock))
             stocks = result.scalars().all()
-            # debug by only testing on 1 stock
-            stocks = [stocks[0]]
-            for each in stocks:
-                print(f'stock conid {each.conid} and ib_symbol {type(each.ib_symbol)}')
+            # debug by only testing on 1 stock of ib_symbol = BHP
+            # stocks = [stock for stock in stocks if stock.ib_symbol == 'BHP']
+            # for each in stocks:
+            #     print(f'stock conid {each.conid} and ib_symbol {type(each.ib_symbol)}')
 
         # Process each stock symbol
         tasks = [process_stock_data(session, stock.id, stock.conid) for stock in stocks]
