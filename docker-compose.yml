@@ -2,7 +2,7 @@ version: '3.11.5'
 
 services:
   ibeam:
-    image: voyz/ibeam
+    image: voyz/ibeam:latest
     container_name: ibeam
     env_file:
       - .env
@@ -22,6 +22,10 @@ services:
     volumes:
       - stock_db:/var/lib/postgresql/data
     restart: unless-stopped
+
+  lean:
+    image: quantconnect/lean:latest
+    container_name: lean
 
 volumes:
   stock_db:

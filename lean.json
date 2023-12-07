@@ -1,4 +1,5 @@
 {
+  "file-database-last-update": "12/07/2023",
   "organization-id": "10c254436acc04d90c20517c249571e9",
   // this configuration file works by first loading all top-level
   // configuration items and then will load the specified environment
@@ -9,6 +10,7 @@
 
   // engine
   "data-folder": "data",
+  "strategy-folder": "strategy",
 
   // location of a python virtual env to use libraries from
   //"python-venv": "/venv",

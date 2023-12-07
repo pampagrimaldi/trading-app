@@ -4,4 +4,4 @@ async_tests/
 .env
 data/
 data_tests/
-
+strategy/
