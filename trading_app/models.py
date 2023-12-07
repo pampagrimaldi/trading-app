@@ -26,6 +26,7 @@ class Stock(Base):
 
     # Define the relationship (optional, if you need to access StockPrice from Stock)
     stock_prices = relationship("StockPrice", back_populates="stock", cascade="all, delete")
+    strategies = relationship("StockStrategy", back_populates="stock", cascade="all, delete")
 
 
 class StockPrice(Base):
@@ -42,16 +43,19 @@ class StockPrice(Base):
     stock = relationship("Stock", back_populates="stock_prices")
 
 
-# class Strategy(Base):
-#     __tablename__ = 'strategy'
-#     id = Column(Integer, primary_key=True, index=True)
-#     name = Column(String, nullable=False)
-#
-#
-# class StockStrategy(Base):
-#     __tablename__ = 'stock_strategy'
-#     stock_id = Column(Integer, ForeignKey('stock.id'), primary_key=True)
-#     strategy_id = Column(Integer, ForeignKey('strategy.id'), primary_key=True)
-#
-#     stock = relationship("Stock")
-#     strategy = relationship("Strategy")
+class Strategy(Base):
+    __tablename__ = 'strategy'
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+
+    # Define the relationship (optional, if you need to access StockPrice from Stock)
+    stocks = relationship("StockStrategy", back_populates="strategy", cascade="all, delete")
+
+
+class StockStrategy(Base):
+    __tablename__ = 'stock_strategy'
+    stock_id = Column(Integer, ForeignKey('stock.id', ondelete='CASCADE'), primary_key=True)
+    strategy_id = Column(Integer, ForeignKey('strategy.id', ondelete='CASCADE'), primary_key=True)
+
+    stock = relationship("Stock", back_populates="strategies")
+    strategy = relationship("Strategy", back_populates="stocks")

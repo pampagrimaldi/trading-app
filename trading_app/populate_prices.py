@@ -10,6 +10,8 @@ import time
 import random
 
 
+# todo: review semaphore in combination with upsert - it's not working.
+
 # Constants
 BASE_URL = "https://localhost:5002/v1/api/iserver/marketdata/history"
 PERIOD = "1y"
@@ -19,6 +21,7 @@ CHUNK_SIZE = 45  # Number of stocks to process in parallel
 
 # Semaphore for rate-limiting
 semaphore = asyncio.Semaphore(SEM_LIMIT)
+
 
 # Fetch historical data for a stock
 async def fetch_historical_data(session, conid, max_retries=1):
