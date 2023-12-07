@@ -8,13 +8,14 @@ from trading_app.models import Stock, StockPrice
 from aiohttp.client_exceptions import ClientResponseError
 import time
 import random
+from tqdm.asyncio import trange
 
 
 # todo: review semaphore in combination with upsert - it's not working.
 
 # Constants
 BASE_URL = "https://localhost:5002/v1/api/iserver/marketdata/history"
-PERIOD = "1y"
+PERIOD = "3y"
 BAR = "1d"
 SEM_LIMIT = 45  # Semaphore limit
 CHUNK_SIZE = 45  # Number of stocks to process in parallel
@@ -95,8 +96,10 @@ async def main():
             result = await db_session.execute(select(Stock))
             stocks = result.scalars().all()
 
-        # Process stocks in chunks
-        for i in range(0, len(stocks), CHUNK_SIZE):
+        total_chunks = (len(stocks) + CHUNK_SIZE - 1) // CHUNK_SIZE
+
+        # Process stocks in chunks with progress bar
+        async for i in trange(0, len(stocks), CHUNK_SIZE, desc="Processing Stocks", total=total_chunks):
             chunk = stocks[i:i + CHUNK_SIZE]
             tasks = [process_stock_data(session, stock.id, stock.conid) for stock in chunk]
             all_prices_chunk = await asyncio.gather(*tasks)
@@ -104,7 +107,6 @@ async def main():
 
             # Bulk insert for each chunk
             await bulk_insert_prices(all_prices_chunk)
-            print(f"Processed chunk {i // CHUNK_SIZE + 1}/{len(stocks) // CHUNK_SIZE}")
 
             # Optional delay between chunks to avoid rate limit
             # await asyncio.sleep(1)
