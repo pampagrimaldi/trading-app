@@ -21,6 +21,13 @@ asyncpg = "^0.29.0"
 lean = "^1.0.174"
 fastapi = {extras = ["all"], version = "^0.104.1"}
 beautifulsoup4 = "^4.12.2"
+yahoo-fin = "^0.8.9.1"
+pydevd-pycharm = ">=233.11799.259,<233.11800.0"
+ptvsd = "^4.3.2"
+quantconnect-stubs = "^16075"
+jupyter = "^1.0.0"
+backtrader = "^1.9.78.123"
+ccxt = "^4.1.81"
 
 
 [build-system]

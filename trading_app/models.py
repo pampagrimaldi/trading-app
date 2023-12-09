@@ -36,9 +36,8 @@ class StockPrice(Base):
     close = Column(Numeric(10, 4), nullable=False)
     high = Column(Numeric(10, 4), nullable=False)
     low = Column(Numeric(10, 4), nullable=False)
-    trade_count = Column(BigInteger, nullable=False)
-    open = Column(Numeric(10, 4), nullable=False)
-    volume = Column(Numeric, nullable=False)
+    open = Column(Numeric, nullable=False)
+    volume = Column(BigInteger, nullable=False)
 
     stock = relationship("Stock", back_populates="stock_prices")
 

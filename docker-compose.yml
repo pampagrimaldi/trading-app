@@ -23,9 +23,5 @@ services:
       - stock_db:/var/lib/postgresql/data
     restart: unless-stopped
 
-  lean:
-    image: quantconnect/lean:latest
-    container_name: lean
-
 volumes:
   stock_db:

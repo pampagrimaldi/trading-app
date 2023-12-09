@@ -17,6 +17,12 @@ class Settings(BaseSettings):
     ibeam_password: str
     quantconnect_token: str
     quantconnect_user: str
+    coinbase_key: str
+    coinbase_secret: str
+    coinbase_pass: str
+    binance_api_key: str
+    binance_api_secret: str
+    binance_password: str
 
     class Config:
         env_file = ".env"

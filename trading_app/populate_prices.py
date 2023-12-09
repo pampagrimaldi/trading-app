@@ -74,7 +74,6 @@ async def process_stock_data(session, stock_id, conid):
                 high=data_point["h"],
                 low=data_point["l"],
                 volume=data_point["v"],
-                trade_count=0  # If trade count is not available
             )
             for data_point in historical_data["data"]
         ]
