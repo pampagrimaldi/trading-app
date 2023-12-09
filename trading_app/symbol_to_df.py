@@ -6,6 +6,7 @@ from trading_app.models import StockPrice, Stock
 
 data_folder = './data'
 ib_folder = './ibdata'
+# index_folder = './indexdata'
 
 
 def get_stock_data(symbol: str, start_date, end_date):
@@ -69,4 +70,4 @@ def get_lean_data(tickers: list, start_date, end_date):
 
 
 if __name__ == '__main__':
-    get_lean_data(['BHP', 'A2M'], '2022-01-01', '2023-12-01')
+    get_lean_data(['BHP', 'A2M','STW','VDHG'], '2022-01-01', '2023-12-01')
