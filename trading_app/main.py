@@ -1,7 +1,7 @@
 # import FastAPI and other libraries
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import data, strategy
+from .routers import data, backtest
 
 # create FastAPI instance
 app = FastAPI()
@@ -18,7 +18,7 @@ app.add_middleware(
 
 # app.include_router(auth.router)
 app.include_router(data.router)
-app.include_router(strategy.router)
+app.include_router(backtest.router)
 
 
 # test

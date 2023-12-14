@@ -1,4 +1,12 @@
 {% extends "layout.html" %}
+{% block head %}
+<style>
+    .backtest-header {
+        text-align: center;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <h1>
 	<a href="/data/stock_table">Stocks</a>
@@ -12,6 +20,7 @@
 		<tr>
 			<th>Symbol</th>
 			<th>Name</th>
+			<th class="backtest-header">Backtest</th>
 		</tr>
 	</thead>
 	<tbody>
@@ -19,8 +28,28 @@
 		<tr>
 			<td>{{ stock.symbol }}</td>
 			<td><a href="/stock_table/{{ stock.symbol}}">{{ stock.name }}</a></td>
+			<td>
+				<button class="ui button" onclick="runBacktest('{{ stock.symbol }}','{{ strategy.name }}')">
+					Run Backtest
+				</button>
+			<td>
 		</tr>
 		{% endfor %}
 	</tbody>
 </table>
+
+<script>
+    function runBacktest(symbol, strategy) {
+        fetch('/backtest/run_backtest', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({symbol, strategy})
+        })
+            .then(response => response.json())
+            .then(data => {
+                // Handle response
+                console.log(data.message);
+            });
+    }
+</script>
 {% endblock %}
