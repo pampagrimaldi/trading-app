@@ -3,12 +3,13 @@ import aiohttp
 from datetime import datetime
 import pytz
 from sqlalchemy import select
-from trading_app.database import SessionLocalAsync
+from trading_app.database import SessionLocalAsync, SessionLocal
 from trading_app.models import Stock, StockPrice
 from aiohttp.client_exceptions import ClientResponseError
 import time
 import random
 from tqdm.asyncio import trange
+from tqdm import tqdm
 import logging
 import os
 import tulipy as ti
@@ -97,20 +98,13 @@ async def process_stock_data(session, stock_id, conid):
             return []
 
         stock_prices = []
+        closing_prices = []
         async with SessionLocalAsync() as db_session:  # Create a new SQLAlchemy session
-            # Get the closing prices
-            closing_prices = [data_point["c"] for data_point in historical_data["data"]]
-            closing_prices_array = np.array(closing_prices, dtype='d')
-
-            # Calculate the SMAs and RSI
-            sma_20 = ti.sma(closing_prices_array, period=20) if len(closing_prices_array) >= 20 else [None] * len(closing_prices_array)
-            sma_50 = ti.sma(closing_prices_array, period=50) if len(closing_prices_array) >= 50 else [None] * len(closing_prices_array)
-            rsi_14 = ti.rsi(closing_prices_array, period=14) if len(closing_prices_array) >= 14 else [None] * len(closing_prices_array)
-
-            for i, data_point in enumerate(historical_data["data"]):
+            for data_point in historical_data["data"]:
                 dt = datetime.fromtimestamp(data_point["t"] / 1000)
                 # Check if a record with the same stock_id and dt already exists
-                existing_price = await db_session.execute(select(StockPrice).where((StockPrice.stock_id == stock_id) & (StockPrice.dt == dt)))
+                existing_price = await db_session.execute(
+                    select(StockPrice).where((StockPrice.stock_id == stock_id) & (StockPrice.dt == dt)))
                 existing_price = existing_price.scalar_one_or_none()
                 if existing_price:
                     # Update the existing record
@@ -119,10 +113,6 @@ async def process_stock_data(session, stock_id, conid):
                     existing_price.high = data_point["h"]
                     existing_price.low = data_point["l"]
                     existing_price.volume = data_point["v"]
-                    # Update the technical indicators
-                    existing_price.sma20 = sma_20[i] if i < len(sma_20) else None
-                    existing_price.sma50 = sma_50[i] if i < len(sma_50) else None
-                    existing_price.rsi14 = rsi_14[i] if i < len(rsi_14) else None
                 else:
                     # Create a new record
                     stock_prices.append(StockPrice(stock_id=stock_id,
@@ -131,15 +121,12 @@ async def process_stock_data(session, stock_id, conid):
                                                    close=data_point["c"],
                                                    high=data_point["h"],
                                                    low=data_point["l"],
-                                                   volume=data_point["v"],
-                                                   sma20=sma_20[i] if i < len(sma_20) else None,
-                                                   sma50=sma_50[i] if i < len(sma_50) else None,
-                                                   rsi14=rsi_14[i] if i < len(rsi_14) else None))
-        return stock_prices
+                                                   volume=data_point["v"]))
+                closing_prices.append(data_point["c"])
+        return stock_prices, closing_prices
     except Exception as e:
-        # Print the exception itself to get more information about the error
         print(f"Error fetching historical data for {conid}: {e}")
-        logging.error(f"Error fetching historical data for {conid}: {e}", exc_info=True)
+        logging.error(f"Error fetching historical data for {conid}: {e}", exc_info=False)
         return []
 
 
@@ -159,6 +146,8 @@ async def bulk_insert_prices(stock_prices):
 async def main():
     async with aiohttp.ClientSession() as session:
         async with SessionLocalAsync() as db_session:
+            # debug: test on a single stock
+            # result = await db_session.execute(select(Stock).filter(Stock.symbol == 'BHP'))
             result = await db_session.execute(select(Stock))
             stocks = result.scalars().all()
 
@@ -171,17 +160,50 @@ async def main():
         async for i in trange(0, len(stocks), CHUNK_SIZE, desc="Processing Stocks", total=total_chunks):
             chunk = stocks[i:i + CHUNK_SIZE]
             tasks = [process_stock_data(session, stock.id, stock.conid) for stock in chunk]
-            all_prices_chunk = await asyncio.gather(*tasks)
-            all_prices_chunk = [price for sublist in all_prices_chunk for price in sublist if sublist]
+            all_results_chunk = await asyncio.gather(*tasks)
+            all_prices_chunk = [result[0] for result in all_results_chunk if result]
+            all_closing_prices_chunk = [result[1] for result in all_results_chunk if result]
 
             # Increment the counter by the number of records included in this chunk
             total_records_included += len(all_prices_chunk)
 
             # Bulk insert for each chunk
-            await bulk_insert_prices(all_prices_chunk)
+            for prices in all_prices_chunk:
+                await bulk_insert_prices(prices)
 
             # Sleep for 1 second between requests to avoid throttling
             await asyncio.sleep(1)
+
+        # Calculate the SMAs and RSI for each stock
+        for stock in tqdm(stocks, desc="Calculating Technical Indicators"):
+            # Create a new session
+            with SessionLocal() as db:
+                try:
+                    stock_prices = (db
+                                    .query(StockPrice)
+                                    .filter(StockPrice.stock_id == stock.id)
+                                    .order_by(StockPrice.dt.desc())
+                                    .limit(50)  # Get the 50 most recent prices
+                                    .all())
+
+                    closing_prices = [price.close for price in stock_prices]
+                    # closing prices array
+                    cp_array = np.array(closing_prices, dtype='d')
+                    # Calculate the SMAs and RSI
+                    sma_20 = ti.sma(cp_array, period=20)[-1] if len(cp_array) >= 20 else None
+                    sma_50 = ti.sma(cp_array, period=50)[-1] if len(cp_array) >= 50 else None
+                    rsi_14 = ti.rsi(cp_array, period=14)[-1] if len(cp_array) >= 14 else None
+
+                    # Update the latest StockPrice instance with the calculated SMA and RSI values
+                    stock_prices[0].sma20 = sma_20
+                    stock_prices[0].sma50 = sma_50
+                    stock_prices[0].rsi14 = rsi_14
+
+                    # Commit the changes to the database
+                    db.commit()
+                except Exception as e:
+                    print(f"Error calculating SMA/RSI for {stock.symbol}: {e}")
+                    logging.error(f"Error calculating SMA/RSI for {stock.symbol}: {e}", exc_info=True)
 
         # Log the total number of records included
         logging.info('Total number of records included: %s', total_records_included)
