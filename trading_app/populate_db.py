@@ -8,10 +8,15 @@ from trading_app.database import SessionLocalAsync
 from trading_app.models import Stock
 from tqdm.asyncio import tqdm
 import logging
+import os
 import random
 
 # Set logging level
 logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
+
+# Set up logging
+log_file_path = os.path.join(os.path.dirname(__file__), '..', 'logs', 'populate_db.log')
+logging.basicConfig(filename=log_file_path, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Async Scraper
 
@@ -166,9 +171,9 @@ async def fetch_existing_ib_symbols():
 async def main():
     async with aiohttp.ClientSession() as session:
         # Scrape symbols
-        print('Scraping symbols...')
+        logging.info('Scraping symbols...')
         symbols_data = await scrape_symbols()
-        print('Scraping complete.')
+        logging.info('Scraping complete.')
 
         # Fetch existing ib_symbols from the database
         existing_ib_symbols = await fetch_existing_ib_symbols()
@@ -177,7 +182,7 @@ async def main():
         batch_size = 40
         total_batches = (len(symbols_data) + batch_size - 1) // batch_size
 
-        print('Processing symbols...')
+        logging.info('Processing symbols...')
         async for i in tqdm(range(0, len(symbols_data), batch_size), total=total_batches, desc="Processing symbols"):
             # batch excludes symbols that already exist in the database
             batch = [(ib_symbol, symbol) for ib_symbol, symbol in symbols_data[i:i + batch_size]
@@ -187,12 +192,11 @@ async def main():
             await asyncio.gather(*tasks)
             await asyncio.sleep(1)  # Wait 1 second between each batch
 
-        print('Processing complete.')
+        logging.info('Processing complete. Updated %s stocks.', len(processed_symbols))
 
 
 if __name__ == '__main__':
-
     start_time = time.time()
     asyncio.run(main())
     end_time = time.time()
-    print(f'Total time taken {end_time - start_time} seconds')
+    logging.info('Total time taken %s seconds', end_time - start_time)

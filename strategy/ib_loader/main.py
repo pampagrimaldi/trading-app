@@ -1,6 +1,7 @@
 # region imports
 from AlgorithmImports import *
 from reader import IBData
+from CustomFeeModel import CustomFeeModel
 # endregion
 
 
@@ -11,11 +12,12 @@ class Ibloader(QCAlgorithm):
         self.SetEndDate(2023, 11, 30)  # Set End D  ate
         self.SetAccountCurrency("AUD")
         self.SetCash(1000000)  # Set Strategy Cash
+        customFeeModel = CustomFeeModel()
         symbol = self.AddData(IBData, "STW", Resolution.Daily).Symbol
         self.SetBenchmark(symbol)
         # this line will be modified on the frontend
         self.symbol = self.AddData(IBData, "BHP", Resolution.Daily).Symbol
-        # self.SetBrokerageModel(BrokerageName.InteractiveBrokersBrokerage, AccountType.Cash)
+        self.Securities[self.symbol].SetFeeModel(customFeeModel)
 
     def OnData(self, data: Slice):
         """OnData event is the primary entry point for your algorithm. Each new data point will be pumped in here.

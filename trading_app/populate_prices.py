@@ -9,24 +9,42 @@ from aiohttp.client_exceptions import ClientResponseError
 import time
 import random
 from tqdm.asyncio import trange
+import logging
+import os
+import tulipy as ti
+import numpy as np
 
 
-# todo: review semaphore in combination with upsert - it's not working.
+# Set up logging
+log_file_path = os.path.join(os.path.dirname(__file__), '..', 'logs', 'populate_prices.log')
+logging.basicConfig(filename=log_file_path, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 # Constants
 BASE_URL = "https://localhost:5002/v1/api/iserver/marketdata/history"
-# PERIOD = "3y"
-PERIOD = "1m"
+PERIOD = "3y"
+# PERIOD = "1m"
 BAR = "1d"
-SEM_LIMIT = 45  # Semaphore limit
-CHUNK_SIZE = 45  # Number of stocks to process in parallel
+SEM_LIMIT = 40  # Semaphore limit
+CHUNK_SIZE = 40  # Number of stocks to process in parallel
 
 # Semaphore for rate-limiting
 semaphore = asyncio.Semaphore(SEM_LIMIT)
 
 
 # Fetch historical data for a stock
-async def fetch_historical_data(session, conid, max_retries=1):
+async def fetch_historical_data(session, conid, max_retries=5):
+    """
+        Fetch historical data for a stock.
+
+        Args:
+            session (aiohttp.ClientSession): The session to use for making HTTP requests.
+            conid (int): The contract ID of the stock.
+            max_retries (int, optional): The maximum number of retries if a request fails. Defaults to 1.
+
+        Returns:
+            dict: The JSON response from the server, or None if an error occurred.
+    """
     url = f"{BASE_URL}?conid={conid}&period={PERIOD}&bar={BAR}"
     retries = 0
     while retries < max_retries:
@@ -61,15 +79,35 @@ async def fetch_historical_data(session, conid, max_retries=1):
 # Process historical data for each stock
 # Process historical data for each stock
 async def process_stock_data(session, stock_id, conid):
+    """
+        Process historical data for a stock.
+
+        Args:
+            session (aiohttp.ClientSession): The session to use for making HTTP requests.
+            stock_id (int): The ID of the stock.
+            conid (int): The contract ID of the stock.
+
+        Returns:
+            list: A list of StockPrice instances, or an empty list if an error occurred.
+    """
     try:
-        historical_data = await fetch_historical_data(session, conid, max_retries=2)
+        historical_data = await fetch_historical_data(session, conid, max_retries=5)
 
         if historical_data is None:
             return []
 
         stock_prices = []
         async with SessionLocalAsync() as db_session:  # Create a new SQLAlchemy session
-            for data_point in historical_data["data"]:
+            # Get the closing prices
+            closing_prices = [data_point["c"] for data_point in historical_data["data"]]
+            closing_prices_array = np.array(closing_prices, dtype='d')
+
+            # Calculate the SMAs and RSI
+            sma_20 = ti.sma(closing_prices_array, period=20) if len(closing_prices_array) >= 20 else [None] * len(closing_prices_array)
+            sma_50 = ti.sma(closing_prices_array, period=50) if len(closing_prices_array) >= 50 else [None] * len(closing_prices_array)
+            rsi_14 = ti.rsi(closing_prices_array, period=14) if len(closing_prices_array) >= 14 else [None] * len(closing_prices_array)
+
+            for i, data_point in enumerate(historical_data["data"]):
                 dt = datetime.fromtimestamp(data_point["t"] / 1000)
                 # Check if a record with the same stock_id and dt already exists
                 existing_price = await db_session.execute(select(StockPrice).where((StockPrice.stock_id == stock_id) & (StockPrice.dt == dt)))
@@ -81,6 +119,10 @@ async def process_stock_data(session, stock_id, conid):
                     existing_price.high = data_point["h"]
                     existing_price.low = data_point["l"]
                     existing_price.volume = data_point["v"]
+                    # Update the technical indicators
+                    existing_price.sma20 = sma_20[i] if i < len(sma_20) else None
+                    existing_price.sma50 = sma_50[i] if i < len(sma_50) else None
+                    existing_price.rsi14 = rsi_14[i] if i < len(rsi_14) else None
                 else:
                     # Create a new record
                     stock_prices.append(StockPrice(stock_id=stock_id,
@@ -89,15 +131,26 @@ async def process_stock_data(session, stock_id, conid):
                                                    close=data_point["c"],
                                                    high=data_point["h"],
                                                    low=data_point["l"],
-                                                   volume=data_point["v"]))
+                                                   volume=data_point["v"],
+                                                   sma20=sma_20[i] if i < len(sma_20) else None,
+                                                   sma50=sma_50[i] if i < len(sma_50) else None,
+                                                   rsi14=rsi_14[i] if i < len(rsi_14) else None))
         return stock_prices
     except Exception as e:
+        # Print the exception itself to get more information about the error
         print(f"Error fetching historical data for {conid}: {e}")
+        logging.error(f"Error fetching historical data for {conid}: {e}", exc_info=True)
         return []
 
 
 # Bulk insert stock price data into the database
 async def bulk_insert_prices(stock_prices):
+    """
+        Bulk insert stock price data into the database.
+
+        Args:
+            stock_prices (list): A list of StockPrice instances to insert.
+    """
     async with SessionLocalAsync() as session:
         async with session.begin():
             session.add_all(stock_prices)
@@ -111,6 +164,9 @@ async def main():
 
         total_chunks = (len(stocks) + CHUNK_SIZE - 1) // CHUNK_SIZE
 
+        # Initialize a counter for the total number of records included
+        total_records_included = 0
+
         # Process stocks in chunks with progress bar
         async for i in trange(0, len(stocks), CHUNK_SIZE, desc="Processing Stocks", total=total_chunks):
             chunk = stocks[i:i + CHUNK_SIZE]
@@ -118,14 +174,20 @@ async def main():
             all_prices_chunk = await asyncio.gather(*tasks)
             all_prices_chunk = [price for sublist in all_prices_chunk for price in sublist if sublist]
 
+            # Increment the counter by the number of records included in this chunk
+            total_records_included += len(all_prices_chunk)
+
             # Bulk insert for each chunk
             await bulk_insert_prices(all_prices_chunk)
 
             # Sleep for 1 second between requests to avoid throttling
             await asyncio.sleep(1)
 
+        # Log the total number of records included
+        logging.info('Total number of records included: %s', total_records_included)
+
 if __name__ == "__main__":
     start_time = time.time()
     asyncio.run(main())
     end_time = time.time()
-    print(f'Total time taken {end_time - start_time} seconds')
+    logging.info('Total time taken %s seconds', end_time - start_time)

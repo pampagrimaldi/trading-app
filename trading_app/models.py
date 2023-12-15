@@ -33,12 +33,15 @@ class StockPrice(Base):
     __tablename__ = 'stock_price'
     stock_id = Column(Integer, ForeignKey('stock.id', ondelete='CASCADE'), primary_key=True)
     dt = Column(DateTime, primary_key=True, nullable=False)
-    close = Column(Numeric(10, 4), nullable=False)
-    high = Column(Numeric(10, 4), nullable=False)
-    low = Column(Numeric(10, 4), nullable=False)
+    close = Column(Numeric, nullable=False)
+    high = Column(Numeric, nullable=False)
+    low = Column(Numeric, nullable=False)
     open = Column(Numeric, nullable=False)
     volume = Column(BigInteger, nullable=False)
-
+    # can be null as some stocks may not have 20 days of data
+    sma20 = Column(Numeric, nullable=True)
+    sma50 = Column(Numeric, nullable=True)
+    rsi14 = Column(Numeric, nullable=True)
     stock = relationship("Stock", back_populates="stock_prices")
 
 

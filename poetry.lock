@@ -4427,6 +4427,21 @@ docs = ["myst-parser", "pydata-sphinx-theme", "sphinx"]
 test = ["argcomplete (>=3.0.3)", "mypy (>=1.7.0)", "pre-commit", "pytest (>=7.0,<7.5)", "pytest-mock", "pytest-mypy-testing"]
 
 [[package]]
+name = "tulipy"
+version = "0.4.0"
+description = "Financial Technical Analysis Indicator Library. Python bindings for https://github.com/TulipCharts/tulipindicators"
+optional = false
+python-versions = "*"
+files = [
+    {file = "tulipy-0.4.0-cp37-cp37m-win32.whl", hash = "sha256:540704956b5b940a5f6306aa393a37536a6d7c3cbc07efe47512f3496e5203ab"},
+    {file = "tulipy-0.4.0-cp37-cp37m-win_amd64.whl", hash = "sha256:95542e40537afdd345d875baf37485eac993c6a819d00c51432e9de8df21eba8"},
+    {file = "tulipy-0.4.0.tar.gz", hash = "sha256:fbc31727ef7657c93ad910bfdce65fecc6aaa7a5e961fe00240718e7a3fc79d8"},
+]
+
+[package.dependencies]
+numpy = "*"
+
+[[package]]
 name = "types-python-dateutil"
 version = "2.8.19.14"
 description = "Typing stubs for python-dateutil"
@@ -5089,4 +5104,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "ac8d029e5b55a07c2c5dbe7cabc074495d631e15ad19a3119997d3af502c8904"
+content-hash = "9d10260c2a62bb4b536f331106a4b2f72b7705b73a10d25ca72c1f6efd40d6e2"
