@@ -44,8 +44,8 @@ def get_all_stocks(request: Request, db: Session = Depends(get_db)):
         stocks = (db
                   .query(Stock, StockPrice, MostRecentDate.c.most_recent_date)
                   .join(MostRecentDate, Stock.id == MostRecentDate.c.stock_id)
-                  .join(StockPrice,
-                        and_(StockPrice.stock_id == Stock.id, StockPrice.dt == MostRecentDate.c.most_recent_date))
+                  .join(StockPrice, and_(StockPrice.stock_id == Stock.id,
+                                         StockPrice.dt == MostRecentDate.c.most_recent_date))
                   .join(ClosingPrice, and_(StockPrice.stock_id == ClosingPrice.c.stock_id,
                                            StockPrice.close == getattr(ClosingPrice.c, price_label)))
                   .order_by(Stock.name.asc())
@@ -63,6 +63,38 @@ def get_all_stocks(request: Request, db: Session = Depends(get_db)):
 
     try:
         template_response = (templates.TemplateResponse("index.html", {"request": request, "stocks": stocks}))
+
+        return template_response
+    except IntegrityError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/stock_table/{symbol}")
+def get_stock(request: Request, symbol: str, db: Session = Depends(get_db)):
+    try:
+        # Query the Stock table
+        stock = (db
+                 .query(Stock)
+                 .filter(Stock.symbol == symbol)
+                 .first())
+
+        # Strategies
+        strategies = db.query(Strategy).all()
+
+        if stock is None:
+            raise HTTPException(status_code=404, detail="Stock not found")
+
+        # Query the StockPrice table separately, ordering by 'dt'
+        stock_prices = (db.query(StockPrice)
+                        .filter(StockPrice.stock_id == stock.id)
+                        .order_by(StockPrice.dt.desc())
+                        .all())
+
+        template_response = templates.TemplateResponse("stock_detail.html",
+                                                       {"request": request,
+                                                        "stock": stock,
+                                                        "stock_prices": stock_prices,
+                                                        "strategies": strategies})
 
         return template_response
     except IntegrityError as e:
