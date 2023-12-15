@@ -24,16 +24,31 @@
 					<tr>
 						<th>Symbol</th>
 						<th>Name</th>
-						<th>Price</th>
+						<th>Date</th> <!-- New table header -->
+						<th>Latest Close Price</th>
 						<th>RSI 14</th>
-						<
+						<th>SMA 20</th>
+						<th>SMA 50</th>
 					</tr>
 				</thead>
 				<tbody>
-					{% for stock in stocks %}
+					{% for stock, stock_price, date in stocks %}
 					<tr>
 						<td>{{ stock.symbol }}</td>
 						<td><a href="stock_table/{{ stock.symbol}}">{{ stock.name }}</a></td>
+						<td>{{ date }}</td> <!-- New table data -->
+						<td>{{ stock_price.close|round(2) if stock_price and stock_price.close is not none else 'N/A'
+							}}
+						</td>
+						<td>{{ stock_price.rsi14|round(2) if stock_price and stock_price.rsi14 is not none else 'N/A'
+							}}
+						</td>
+						<td>{{ stock_price.sma20|round(2) if stock_price and stock_price.sma20 is not none else 'N/A'
+							}}
+						</td>
+						<td>{{ stock_price.sma50|round(2) if stock_price and stock_price.sma50 is not none else 'N/A'
+							}}
+						</td>
 					</tr>
 					{% endfor %}
 				</tbody>

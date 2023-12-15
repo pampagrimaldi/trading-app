@@ -51,18 +51,24 @@
 			<th>Low</th>
 			<th>Close</th>
 			<th>Volume</th>
+			<th>RSI 14</th>
+			<th>SMA 20</th>
+			<th>SMA 50</th>
 		</tr>
 	</thead>
 	<tbody>
 		{% for bar in stock_prices %}
 		<tr>
-			<td>{{ bar.dt }}</td>
-			<td>{{ bar.open }}</td>
-			<td>{{ bar.high }}</td>
-			<td>{{ bar.low }}</td>
-			<td>{{ bar.close }}</td>
-			<td>{{ bar.volume }}</td>
-		</tr>
+            <td>{{ bar.dt }}</td>
+            <td>{{ bar.open|round(2) if bar.open is not none else 'N/A'}}</td>
+            <td>{{ bar.high|round(2) if bar.high is not none else 'N/A'}}</td>
+            <td>{{ bar.low|round(2)if bar.low is not none else 'N/A'}}</td>
+            <td>{{ bar.close|round(2)if bar.close is not none else 'N/A'}}</td>
+            <td>{{ bar.volume }}</td>
+            <td>{{ bar.rsi14|round(2) if bar.rsi14 is not none else 'N/A' }}</td>
+            <td>{{ bar.sma20|round(2) if bar.sma20 is not none else 'N/A' }}</td>
+            <td>{{ bar.sma50|round(2) if bar.sma50 is not none else 'N/A' }}</td>
+        </tr>
 		{% endfor %}
 	</tbody>
 </table>
