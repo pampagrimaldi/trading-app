@@ -15,7 +15,8 @@ from tqdm.asyncio import trange
 
 # Constants
 BASE_URL = "https://localhost:5002/v1/api/iserver/marketdata/history"
-PERIOD = "3y"
+# PERIOD = "3y"
+PERIOD = "1m"
 BAR = "1d"
 SEM_LIMIT = 45  # Semaphore limit
 CHUNK_SIZE = 45  # Number of stocks to process in parallel
@@ -58,6 +59,7 @@ async def fetch_historical_data(session, conid, max_retries=1):
 
 
 # Process historical data for each stock
+# Process historical data for each stock
 async def process_stock_data(session, stock_id, conid):
     try:
         historical_data = await fetch_historical_data(session, conid, max_retries=2)
@@ -65,18 +67,30 @@ async def process_stock_data(session, stock_id, conid):
         if historical_data is None:
             return []
 
-        return [
-            StockPrice(
-                stock_id=stock_id,
-                dt=datetime.fromtimestamp(data_point["t"] / 1000),
-                open=data_point["o"],
-                close=data_point["c"],
-                high=data_point["h"],
-                low=data_point["l"],
-                volume=data_point["v"],
-            )
-            for data_point in historical_data["data"]
-        ]
+        stock_prices = []
+        async with SessionLocalAsync() as db_session:  # Create a new SQLAlchemy session
+            for data_point in historical_data["data"]:
+                dt = datetime.fromtimestamp(data_point["t"] / 1000)
+                # Check if a record with the same stock_id and dt already exists
+                existing_price = await db_session.execute(select(StockPrice).where((StockPrice.stock_id == stock_id) & (StockPrice.dt == dt)))
+                existing_price = existing_price.scalar_one_or_none()
+                if existing_price:
+                    # Update the existing record
+                    existing_price.open = data_point["o"]
+                    existing_price.close = data_point["c"]
+                    existing_price.high = data_point["h"]
+                    existing_price.low = data_point["l"]
+                    existing_price.volume = data_point["v"]
+                else:
+                    # Create a new record
+                    stock_prices.append(StockPrice(stock_id=stock_id,
+                                                   dt=dt,
+                                                   open=data_point["o"],
+                                                   close=data_point["c"],
+                                                   high=data_point["h"],
+                                                   low=data_point["l"],
+                                                   volume=data_point["v"]))
+        return stock_prices
     except Exception as e:
         print(f"Error fetching historical data for {conid}: {e}")
         return []
@@ -107,8 +121,8 @@ async def main():
             # Bulk insert for each chunk
             await bulk_insert_prices(all_prices_chunk)
 
-            # Optional delay between chunks to avoid rate limit
-            # await asyncio.sleep(1)
+            # Sleep for 1 second between requests to avoid throttling
+            await asyncio.sleep(1)
 
 if __name__ == "__main__":
     start_time = time.time()
