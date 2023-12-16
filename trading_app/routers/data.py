@@ -26,9 +26,6 @@ def get_all_stocks(request: Request, db: Session = Depends(get_db)):
                       .group_by(StockPrice.stock_id)
                       .subquery('MostRecentDate'))
 
-    # debug: Print the MostRecentDate subquery
-    print("MostRecentDate:", db.query(MostRecentDate).first())
-
     if stock_filter in ['new_closing_highs', 'new_closing_lows']:
         # Determine whether to find max or min closing price
         price_func = func.max if stock_filter == 'new_closing_highs' else func.min
