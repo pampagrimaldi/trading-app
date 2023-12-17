@@ -2,6 +2,7 @@
 from AlgorithmImports import *
 from reader import IBData
 from CustomFeeModel import CustomFeeModel
+
 # endregion
 
 
@@ -16,7 +17,7 @@ class Ibloader(QCAlgorithm):
         symbol = self.AddData(IBData, "STW", Resolution.Daily).Symbol
         self.SetBenchmark(symbol)
         # this line will be modified on the frontend
-        self.symbol = self.AddData(IBData, "WBCPI", Resolution.Daily).Symbol
+        self.symbol = self.AddData(IBData, "BHP", Resolution.Daily).Symbol
         self.Securities[self.symbol].SetFeeModel(customFeeModel)
 
         # Schedule the BuyStock method to run every Monday

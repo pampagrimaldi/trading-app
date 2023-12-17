@@ -148,17 +148,55 @@ def write_backtest_to_db(json_file: str, symbol: str, strategy_name: str, db: Se
     statistic = BacktestStatistics(backtest_id=backtest.id, **statistics_data)
     db.add(statistic)
 
-    for key, value in profit_loss.items():
-        profit_loss_entry = BacktestProfitLoss(backtest_id=backtest.id, profit_loss_data=value)
+    # todo: modify table so its not unnecessarily saved as Json. Also, something wrong with backtest_profit_loss.
+    # todo: the timestamp in the backtest is not in the right timezone - not urgent.
+
+    for chart_name, chart_data in charts.items():
+        if chart_name in ['Benchmark', 'Drawdown', 'Assets Sales Volume', 'Portfolio Turnover', 'Strategy Equity']:
+            for series_name, series_data in chart_data['Series'].items():
+                for data_point in series_data['Values']:
+                    if isinstance(data_point, dict) and 'x' in data_point and 'y' in data_point:
+                        timestamp = datetime.fromtimestamp(data_point['x'])
+                        value = data_point['y']
+                        chart = BacktestCharts(backtest_id=backtest.id, timestamp=timestamp,
+                                               variable_name=series_name, value=value)
+                        db.add(chart)
+
+    for timestamp_str, value in profit_loss.items():
+        timestamp = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+
+        profit_loss_entry = BacktestProfitLoss(backtest_id=backtest.id, timestamp=timestamp, value=value)
+
         db.add(profit_loss_entry)
 
-    for key, value in orders.items():
-        order = BacktestOrders(backtest_id=backtest.id, order_data=value)
+    for order_id, order_data in orders.items():
+        order = BacktestOrders(
+            backtest_id=backtest.id,
+            order_id=order_id,
+            order_type=order_data['Type'],
+            contingent_id=order_data['ContingentId'],
+            broker_id=','.join(order_data['BrokerId']),
+            symbol_value=order_data['Symbol']['Value'],
+            symbol_id=order_data['Symbol']['ID'],
+            symbol_permtick=order_data['Symbol']['Permtick'],
+            price=order_data['Price'],
+            price_currency=order_data['PriceCurrency'],
+            time=datetime.fromisoformat(order_data['Time'].replace("Z", "+00:00")),
+            created_time=datetime.fromisoformat(order_data['CreatedTime'].replace("Z", "+00:00")),
+            last_fill_time=datetime.fromisoformat(order_data['LastFillTime'].replace("Z", "+00:00")),
+            quantity=order_data['Quantity'],
+            status=order_data['Status'],
+            tag=order_data['Tag'],
+            security_type=order_data['SecurityType'],
+            direction=order_data['Direction'],
+            value=order_data['Value'],
+            bid_price=order_data['OrderSubmissionData']['BidPrice'],
+            ask_price=order_data['OrderSubmissionData']['AskPrice'],
+            last_price=order_data['OrderSubmissionData']['LastPrice'],
+            is_marketable=order_data['IsMarketable'],
+            price_adjustment_mode=order_data['PriceAdjustmentMode']
+        )
         db.add(order)
-
-    for key, value in charts.items():
-        chart = BacktestCharts(backtest_id=backtest.id, chart_data=value)
-        db.add(chart)
 
     # Commit the session to save the changes to the database
     db.commit()

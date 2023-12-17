@@ -133,18 +133,42 @@ class BacktestProfitLoss(Base):
     __tablename__ = 'backtest_profit_loss'
     id = Column(Integer, primary_key=True, index=True)
     backtest_id = Column(Integer, ForeignKey('backtest.id', ondelete='CASCADE'))
-    profit_loss_data = Column(JSON, nullable=False)
+    # profit_loss_data = Column(JSON, nullable=False)
+    timestamp = Column(DateTime, nullable=False)
+    value = Column(Numeric, nullable=False)
 
     # Define the relationship
     backtest = relationship("Backtest", back_populates="profit_loss")
-
 
 
 class BacktestOrders(Base):
     __tablename__ = 'backtest_orders'
     id = Column(Integer, primary_key=True, index=True)
     backtest_id = Column(Integer, ForeignKey('backtest.id', ondelete='CASCADE'))
-    order_data = Column(JSON, nullable=False)
+    # order_data = Column(JSON, nullable=False)
+    order_id = Column(Integer, nullable=True)
+    order_type = Column(Integer, nullable=True)
+    contingent_id = Column(Integer, nullable=True)
+    broker_id = Column(String, nullable=True)
+    symbol_value = Column(String, nullable=True)
+    symbol_id = Column(String, nullable=True)
+    symbol_permtick = Column(String, nullable=True)
+    price = Column(Numeric, nullable=True)
+    price_currency = Column(String, nullable=True)
+    time = Column(DateTime, nullable=True)
+    created_time = Column(DateTime, nullable=True)
+    last_fill_time = Column(DateTime, nullable=True)
+    quantity = Column(Numeric, nullable=True)
+    status = Column(Integer, nullable=True)
+    tag = Column(String, nullable=True)
+    security_type = Column(Integer, nullable=True)
+    direction = Column(Integer, nullable=True)
+    value = Column(Numeric, nullable=True)
+    bid_price = Column(Numeric, nullable=True)
+    ask_price = Column(Numeric, nullable=True)
+    last_price = Column(Numeric, nullable=True)
+    is_marketable = Column(Boolean, nullable=True)
+    price_adjustment_mode = Column(Integer, nullable=True)
 
     backtest = relationship("Backtest", back_populates="orders")
 
@@ -153,6 +177,8 @@ class BacktestCharts(Base):
     __tablename__ = 'backtest_charts'
     id = Column(Integer, primary_key=True, index=True)
     backtest_id = Column(Integer, ForeignKey('backtest.id', ondelete='CASCADE'))
-    chart_data = Column(JSON, nullable=False)
+    timestamp = Column(DateTime, nullable=False)
+    variable_name = Column(String, nullable=False)
+    value = Column(Numeric, nullable=False)
 
     backtest = relationship("Backtest", back_populates="charts")
