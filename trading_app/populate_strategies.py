@@ -5,6 +5,7 @@ from trading_app.database import SessionLocal
 
 strategy_dir = 'strategy'
 
+# todo: make it automatic, as at the moment we have to manually add new strategies to the db
 
 def get_strategy_names(strategy_dir):
     try:

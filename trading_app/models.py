@@ -7,10 +7,12 @@ from sqlalchemy import (
     Numeric,
     ForeignKey,
     Boolean,
-    BigInteger
+    BigInteger,
+    JSON
 )
 
 from sqlalchemy.orm import relationship
+from sqlalchemy import PrimaryKeyConstraint, ForeignKeyConstraint
 
 
 class Stock(Base):
@@ -61,3 +63,96 @@ class StockStrategy(Base):
 
     stock = relationship("Stock", back_populates="strategies")
     strategy = relationship("Strategy", back_populates="stocks")
+
+
+class Backtest(Base):
+    __tablename__ = 'backtest'
+    id = Column(Integer, primary_key=True, index=True)
+    stock_strategy_stock_id = Column(Integer)
+    stock_strategy_strategy_id = Column(Integer)
+    timestamp = Column(DateTime, nullable=False)
+
+    # Define the relationships
+    statistics = relationship("BacktestStatistics", back_populates="backtest", cascade="all, delete")
+    profit_loss = relationship("BacktestProfitLoss", back_populates="backtest", cascade="all, delete")
+    orders = relationship("BacktestOrders", back_populates="backtest", cascade="all, delete")
+    charts = relationship("BacktestCharts", back_populates="backtest", cascade="all, delete")
+
+    # Add a composite foreign key constraint referencing the StockStrategy table
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ['stock_strategy_stock_id', 'stock_strategy_strategy_id'],
+            ['stock_strategy.stock_id', 'stock_strategy.strategy_id'],
+            ondelete='CASCADE'
+        ),
+    )
+
+
+class BacktestStatistics(Base):
+    __tablename__ = 'backtest_statistics'
+    id = Column(Integer, primary_key=True, index=True)
+    backtest_id = Column(Integer, ForeignKey('backtest.id', ondelete='CASCADE'))
+
+    total_trades = Column(Integer, nullable=True)
+    average_win = Column(Numeric, nullable=True)
+    average_loss = Column(Numeric, nullable=True)
+    compounding_annual_return = Column(Numeric, nullable=True)
+    drawdown = Column(Numeric, nullable=True)
+    expectancy = Column(Numeric, nullable=True)
+    net_profit = Column(Numeric, nullable=True)
+    sharpe_ratio = Column(Numeric, nullable=True)
+    sortino_ratio = Column(Numeric, nullable=True)
+    probabilistic_sharpe_ratio = Column(Numeric, nullable=True)
+    loss_rate = Column(Numeric, nullable=True)
+    win_rate = Column(Numeric, nullable=True)
+    profit_loss_ratio = Column(Numeric, nullable=True)
+    alpha = Column(Numeric, nullable=True)
+    beta = Column(Numeric, nullable=True)
+    annual_standard_deviation = Column(Numeric, nullable=True)
+    annual_variance = Column(Numeric, nullable=True)
+    information_ratio = Column(Numeric, nullable=True)
+    tracking_error = Column(Numeric, nullable=True)
+    treynor_ratio = Column(Numeric, nullable=True)
+    total_fees = Column(Numeric, nullable=True)
+    estimated_strategy_capacity = Column(Numeric, nullable=True)
+    lowest_capacity_asset = Column(String)
+    portfolio_turnover = Column(Numeric, nullable=True)
+    equity = Column(Numeric, nullable=True)
+    fees = Column(Numeric, nullable=True)
+    holdings = Column(Numeric, nullable=True)
+    net_profit_runtime = Column(Numeric, nullable=True)
+    probabilistic_sharpe_ratio_runtime = Column(Numeric, nullable=True)
+    return_runtime = Column(Numeric, nullable=True)
+    unrealized = Column(Numeric, nullable=True)
+    volume = Column(Numeric, nullable=True)
+
+    backtest = relationship("Backtest", back_populates="statistics")
+
+
+class BacktestProfitLoss(Base):
+    __tablename__ = 'backtest_profit_loss'
+    id = Column(Integer, primary_key=True, index=True)
+    backtest_id = Column(Integer, ForeignKey('backtest.id', ondelete='CASCADE'))
+    profit_loss_data = Column(JSON, nullable=False)
+
+    # Define the relationship
+    backtest = relationship("Backtest", back_populates="profit_loss")
+
+
+
+class BacktestOrders(Base):
+    __tablename__ = 'backtest_orders'
+    id = Column(Integer, primary_key=True, index=True)
+    backtest_id = Column(Integer, ForeignKey('backtest.id', ondelete='CASCADE'))
+    order_data = Column(JSON, nullable=False)
+
+    backtest = relationship("Backtest", back_populates="orders")
+
+
+class BacktestCharts(Base):
+    __tablename__ = 'backtest_charts'
+    id = Column(Integer, primary_key=True, index=True)
+    backtest_id = Column(Integer, ForeignKey('backtest.id', ondelete='CASCADE'))
+    chart_data = Column(JSON, nullable=False)
+
+    backtest = relationship("Backtest", back_populates="charts")
