@@ -23,8 +23,8 @@ logging.basicConfig(filename=log_file_path, level=logging.INFO, format='%(asctim
 
 # Constants
 BASE_URL = "https://localhost:5002/v1/api/iserver/marketdata/history"
-PERIOD = "3y"
-# PERIOD = "1m"
+# PERIOD = "3y"
+PERIOD = "1w"
 BAR = "1d"
 SEM_LIMIT = 40  # Semaphore limit
 CHUNK_SIZE = 40  # Number of stocks to process in parallel

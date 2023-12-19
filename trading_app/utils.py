@@ -148,7 +148,7 @@ def write_backtest_to_db(json_file: str, symbol: str, strategy_name: str, db: Se
     statistic = BacktestStatistics(backtest_id=backtest.id, **statistics_data)
     db.add(statistic)
 
-    # todo: modify table so its not unnecessarily saved as Json. Also, something wrong with backtest_profit_loss.
+    # todo: add cummulative change in equity and benchmark (here or in the frontend?)
     # todo: the timestamp in the backtest is not in the right timezone - not urgent.
 
     for chart_name, chart_data in charts.items():
