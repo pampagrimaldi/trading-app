@@ -1,58 +1,52 @@
-<!DOCTYPE html>
-<html lang="en">
-	<head>
-		<meta charset="UTF-8">
-		<title>Stonks</title>
-		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/semantic-ui@2.5.0/dist/semantic.min.css">
-		<script src="https://cdn.jsdelivr.net/npm/semantic-ui@2.5.0/dist/semantic.min.js"></script>
-	</head>
-	<body>
-		<div class="ui container">
-			<h1>Stock List</h1>
-			<form method="get">
-				<select name="filter">
-					<option value="">All Stocks</option>
-					<option value="new_intraday_highs">New Intraday Highs</option>
-					<option {% if request.query_params.filter=="new_closing_highs" %} selected="selected" {% endif%} value="new_closing_highs">New Closing Highs</option>
-					<option value="new_intraday_lows">New Intraday Lows</option>
-					<option {% if request.query_params.filter=="new_closing_lows" %} selected="selected" {% endif%} value="new_closing_lows">New Closing Lows</option>
-				</select>
-				<input type="submit">
-			</form>
-			<table class="ui striped table">
-				<thead>
-					<tr>
-						<th>Symbol</th>
-						<th>Name</th>
-						<th>Date</th> <!-- New table header -->
-						<th>Latest Close Price</th>
-						<th>RSI 14</th>
-						<th>SMA 20</th>
-						<th>SMA 50</th>
-					</tr>
-				</thead>
-				<tbody>
-					{% for stock, stock_price, date in stocks %}
-					<tr>
-						<td>{{ stock.symbol }}</td>
-						<td><a href="stock_table/{{ stock.symbol}}">{{ stock.name }}</a></td>
-						<td>{{ date }}</td> <!-- New table data -->
-						<td>{{ stock_price.close|round(2) if stock_price and stock_price.close is not none else 'N/A'
-							}}
-						</td>
-						<td>{{ stock_price.rsi14|round(2) if stock_price and stock_price.rsi14 is not none else 'N/A'
-							}}
-						</td>
-						<td>{{ stock_price.sma20|round(2) if stock_price and stock_price.sma20 is not none else 'N/A'
-							}}
-						</td>
-						<td>{{ stock_price.sma50|round(2) if stock_price and stock_price.sma50 is not none else 'N/A'
-							}}
-						</td>
-					</tr>
-					{% endfor %}
-				</tbody>
-			</table>
-		</div>
-	</body>
-</html>
+{% extends "layout.html" %}
+{% block content %}
+	<h1>Stock List</h1>
+	<form method="get">
+		<select name="filter">
+			<option value="">All Stocks</option>
+			<option value="new_intraday_highs">New Intraday Highs</option>
+			<option {% if request.query_params.filter=="new_closing_highs" %} selected="selected" {% endif%}
+			        value="new_closing_highs">New Closing Highs
+			</option>
+			<option value="new_intraday_lows">New Intraday Lows</option>
+			<option {% if request.query_params.filter=="new_closing_lows" %} selected="selected" {% endif%}
+			        value="new_closing_lows">New Closing Lows
+			</option>
+		</select>
+		<input type="submit">
+	</form>
+	<table class="ui striped table">
+		<thead>
+			<tr>
+				<th>Symbol</th>
+				<th>Name</th>
+				<th>Date</th> <!-- New table header -->
+				<th>Latest Close Price</th>
+				<th>RSI 14</th>
+				<th>SMA 20</th>
+				<th>SMA 50</th>
+			</tr>
+		</thead>
+		<tbody>
+			{% for stock, stock_price, date in stocks %}
+			<tr>
+				<td>{{ stock.symbol }}</td>
+				<td><a href="stock_table/{{ stock.symbol}}">{{ stock.name }}</a></td>
+				<td>{{ date }}</td> <!-- New table data -->
+				<td>{{ stock_price.close|round(2) if stock_price and stock_price.close is not none else 'N/A'
+					}}
+				</td>
+				<td>{{ stock_price.rsi14|round(2) if stock_price and stock_price.rsi14 is not none else 'N/A'
+					}}
+				</td>
+				<td>{{ stock_price.sma20|round(2) if stock_price and stock_price.sma20 is not none else 'N/A'
+					}}
+				</td>
+				<td>{{ stock_price.sma50|round(2) if stock_price and stock_price.sma50 is not none else 'N/A'
+					}}
+				</td>
+			</tr>
+			{% endfor %}
+		</tbody>
+	</table>
+{% endblock %}

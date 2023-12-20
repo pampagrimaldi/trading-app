@@ -7,7 +7,8 @@ import glob
 import json
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
+
 from trading_app.database import get_db
 from sqlalchemy.orm import Session
 from trading_app.models import (Stock, Strategy, Backtest, BacktestStatistics,
@@ -89,11 +90,14 @@ def write_backtest_to_db(json_file: str, symbol: str, strategy_name: str, db: Se
     if not stock or not strategy:
         raise ValueError("Invalid stock symbol or strategy name")
 
+    # Convert the timestamp to Sydney timezone
+    timestamp = datetime.fromisoformat(data['State']['StartTime']) + timedelta(hours=11)
+
     # Create a new Backtest instance
     backtest = Backtest(
-        stock_strategy_stock_id=stock.id,
-        stock_strategy_strategy_id=strategy.id,
-        timestamp=data['State']['StartTime']
+        stock_id=stock.id,
+        strategy_id=strategy.id,
+        timestamp=timestamp
     )
 
     # Add the Backtest instance to the session

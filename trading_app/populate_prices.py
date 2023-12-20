@@ -16,6 +16,8 @@ import tulipy as ti
 import numpy as np
 
 
+# todo: fix the additional error logging
+
 # Set up logging
 log_file_path = os.path.join(os.path.dirname(__file__), '..', 'logs', 'populate_prices.log')
 logging.basicConfig(filename=log_file_path, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -202,8 +204,7 @@ async def main():
                     # Commit the changes to the database
                     db.commit()
                 except Exception as e:
-                    print(f"Error calculating SMA/RSI for {stock.symbol}: {e}")
-                    logging.error(f"Error calculating SMA/RSI for {stock.symbol}: {e}", exc_info=True)
+                    logging.error(f"Error calculating SMA/RSI for {stock.symbol}: {e}", exc_info=False)
 
         # Log the total number of records included
         logging.info('Total number of records included: %s', total_records_included)

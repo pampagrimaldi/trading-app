@@ -68,8 +68,8 @@ class StockStrategy(Base):
 class Backtest(Base):
     __tablename__ = 'backtest'
     id = Column(Integer, primary_key=True, index=True)
-    stock_strategy_stock_id = Column(Integer)
-    stock_strategy_strategy_id = Column(Integer)
+    stock_id = Column(Integer, ForeignKey('stock.id', ondelete='CASCADE'))
+    strategy_id = Column(Integer, ForeignKey('strategy.id', ondelete='CASCADE'))
     timestamp = Column(DateTime, nullable=False)
 
     # Define the relationships
@@ -78,14 +78,8 @@ class Backtest(Base):
     orders = relationship("BacktestOrders", back_populates="backtest", cascade="all, delete")
     charts = relationship("BacktestCharts", back_populates="backtest", cascade="all, delete")
 
-    # Add a composite foreign key constraint referencing the StockStrategy table
-    __table_args__ = (
-        ForeignKeyConstraint(
-            ['stock_strategy_stock_id', 'stock_strategy_strategy_id'],
-            ['stock_strategy.stock_id', 'stock_strategy.strategy_id'],
-            ondelete='CASCADE'
-        ),
-    )
+    stock = relationship("Stock")
+    strategy = relationship("Strategy")
 
 
 class BacktestStatistics(Base):

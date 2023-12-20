@@ -1,0 +1,28 @@
+{% extends "layout.html"%}
+
+{% block content %}
+
+<h1>Backtests</h1>
+
+<table class="ui striped table">
+	<thead>
+		<tr>
+			<th>ID</th>
+			<th>Stock Symbol</th>
+			<th>Strategy Name</th>
+			<th>Timestamp</th>
+		</tr>
+	</thead>
+	<tbody>
+		{% for backtest in backtests %}
+		<tr>
+			<td>{{ backtest.id }}</td>
+			<td>{{ backtest.stock.symbol }}</td>  <!-- Access the stock symbol -->
+			<td>{{ backtest.strategy.name }}</td>  <!-- Access the strategy name -->
+			<td>{{ backtest.timestamp }}</td>
+		</tr>
+		{% endfor %}
+	</tbody>
+</table>
+
+{% endblock %}

@@ -7,6 +7,28 @@
 		<script src="https://cdn.jsdelivr.net/npm/semantic-ui@2.5.0/dist/semantic.min.js"></script>
 	</head>
 	<body>
+		<div class="ui secondary pointing menu">
+			<a href="/data/stock_table" class="{{ 'active' if request.url.path == '/data/stock_table' else '' }} item">
+				Stocks
+			</a>
+			<a href="/strategies/all_strategies"
+			   class="{{ 'active' if request.url.path == '/strategies/all_strategies' else '' }} item">
+				Strategies
+			</a>
+			<a href="/backtest/all_backtests"
+			   class="{{ 'active' if request.url.path == '/backtest/all_backtests' else '' }} item">
+				Backtest History
+			</a>
+			<div class="right menu">
+				<a class="ui item">
+					Logout
+				</a>
+			</div>
+		</div>
+		<div class="ui segment">
+			<p></p>
+		</div>
+
 		<div container="ui container">
 			{% block content %}
 			{% endblock %}

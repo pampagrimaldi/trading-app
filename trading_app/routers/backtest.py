@@ -1,18 +1,24 @@
 import subprocess
 from pathlib import Path
 
-from fastapi import HTTPException, APIRouter, Depends
+from fastapi import HTTPException, APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from trading_app.utils import get_lean_data
 from trading_app.database import get_db
 from trading_app.schemas import RunBacktestRequest, RunBacktestResponse
 from trading_app.utils import get_json_files, write_backtest_to_db
+from trading_app.models import Backtest, Stock, Strategy  # make sure to import the Stock and Strategy models
+from sqlalchemy.orm import joinedload
+
+from fastapi.templating import Jinja2Templates
 
 router = APIRouter(
     prefix="/backtest",
     tags=['Backtest']
 )
+
+templates = Jinja2Templates(directory="templates")
 
 
 @router.post('/run_backtest')
@@ -60,3 +66,12 @@ async def run_backtest(request: RunBacktestRequest, db: Session = Depends(get_db
     write_backtest_to_db(json_file, symbol, strategy, db)
 
     return RunBacktestResponse(message=f"Backtest for strategy '{strategy}' with symbol '{symbol}' initiated")
+
+
+@router.get("/all_backtests")
+def get_all_backtests(request: Request, db: Session = Depends(get_db)):
+    # Query all backtests from the database and join with StockStrategy table
+    backtests = db.query(Backtest).options(joinedload(Backtest.stock), joinedload(Backtest.strategy)).all()
+
+    # Pass the backtests to the template
+    return templates.TemplateResponse("backtests.html", {"request": request, "backtests": backtests})

@@ -6,6 +6,7 @@ from trading_app.database import get_db
 from sqlalchemy.exc import IntegrityError
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, and_
+from typing import List, Dict
 
 router = APIRouter(
     prefix="/data",
