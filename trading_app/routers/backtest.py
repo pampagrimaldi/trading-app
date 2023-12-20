@@ -8,7 +8,7 @@ from trading_app.utils import get_lean_data
 from trading_app.database import get_db
 from trading_app.schemas import RunBacktestRequest, RunBacktestResponse
 from trading_app.utils import get_json_files, write_backtest_to_db
-from trading_app.models import Backtest, Stock, Strategy  # make sure to import the Stock and Strategy models
+from trading_app.models import Backtest, BacktestCharts, BacktestStatistics
 from sqlalchemy.orm import joinedload
 
 from fastapi.templating import Jinja2Templates
@@ -75,3 +75,25 @@ def get_all_backtests(request: Request, db: Session = Depends(get_db)):
 
     # Pass the backtests to the template
     return templates.TemplateResponse("backtests.html", {"request": request, "backtests": backtests})
+
+
+@router.get("/backtest_charts/{backtest_id}/{variable_name}")
+def get_backtest_charts(backtest_id: int, variable_name: str, db: Session = Depends(get_db)):
+    # Query all BacktestCharts for the specified backtest and variable from the database
+    charts = db.query(BacktestCharts).filter(BacktestCharts.backtest_id == backtest_id, BacktestCharts.variable_name == variable_name).all()
+
+    # Convert the charts to a format suitable for the frontend
+    charts_data = [{"timestamp": chart.timestamp, "value": chart.value} for chart in charts]
+
+    return charts_data
+
+
+@router.get("/backtest_statistics/{backtest_id}")
+def get_backtest_statistics(backtest_id: int, db: Session = Depends(get_db)):
+    # Query the BacktestStatistics for the specified backtest from the database
+    statistics = db.query(BacktestStatistics).filter(BacktestStatistics.backtest_id == backtest_id).first()
+
+    # Convert the statistics to a dictionary
+    statistics_data = {column.name: getattr(statistics, column.name) for column in statistics.__table__.columns}
+
+    return statistics_data

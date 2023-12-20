@@ -4,7 +4,7 @@
 
 <h1>Backtests</h1>
 
-<table class="ui striped table">
+<table class="ui striped table" id="backtests-table">
 	<thead>
 		<tr>
 			<th>ID</th>
@@ -15,7 +15,7 @@
 	</thead>
 	<tbody>
 		{% for backtest in backtests %}
-		<tr>
+		<tr data-backtest-id="{{ backtest.id }}" class="backtest-row">
 			<td>{{ backtest.id }}</td>
 			<td>{{ backtest.stock.symbol }}</td>  <!-- Access the stock symbol -->
 			<td>{{ backtest.strategy.name }}</td>  <!-- Access the strategy name -->
@@ -24,5 +24,43 @@
 		{% endfor %}
 	</tbody>
 </table>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/semantic.min.js"></script>
+<script>
+    // When a row in the backtests table is clicked
+    $('.backtest-row').click(function () {
+        var backtestId = $(this).data('backtest-id');
+
+        // Fetch the BacktestStatistics data for the selected backtest
+        fetch('/backtest/backtest_statistics/' + backtestId)
+            .then(response => response.json())
+            .then(data => {
+                // Create a summary of the statistics
+                var summary = '';
+                summary += '<p><strong>Compounding Annual Return:</strong> ' + (data.compounding_annual_return * 100).toFixed(2) + '%</p>';
+                summary += '<p><strong>Average Win:</strong> ' + (data.average_win * 100).toFixed(2) + '%</p>';
+                summary += '<p><strong>Average Loss:</strong> ' + (data.average_loss * 100).toFixed(2) + '%</p>';
+                summary += '<p><strong>Net P&L(%):</strong> ' + (data.net_profit * 100).toFixed(2) + '%</p>';
+                summary += '<p><strong>Net P&L($):</strong> ' + data.net_profit_runtime.toLocaleString('en-US', {maximumFractionDigits: 0}) + '</p>';
+                summary += '<p><strong>Loss Rate:</strong> ' + (data.loss_rate * 100).toFixed(2) + '%</p>';
+                summary += '<p><strong>Win Rate:</strong> ' + (data.win_rate * 100).toFixed(2) + '%</p>';
+                summary += '<p><strong>Total Fees:</strong> ' + data.total_fees.toLocaleString('en-US', {maximumFractionDigits: 0}) + '</p>';
+                summary += '<p><strong>Equity:</strong> ' + data.equity.toLocaleString('en-US', {maximumFractionDigits: 0}) + '</p>';
+                summary += '<p><strong>Unrealized:</strong> ' + data.unrealized.toLocaleString('en-US', {maximumFractionDigits: 0}) + '</p>';
+
+                // Create the Semantic UI popup with the summary
+                $(this).popup({
+                    title: 'Backtest Statistics',
+                    html: summary,
+                    on: 'click',
+                    class: 'wide-popup'  // Add this line
+                });
+
+                // Show the popup
+                $(this).popup('show');
+            });
+    });
+</script>
 
 {% endblock %}
