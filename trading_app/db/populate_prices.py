@@ -19,7 +19,7 @@ import numpy as np
 # todo: fix the additional error logging
 
 # Set up logging
-log_file_path = os.path.join(os.path.dirname(__file__), '..', 'logs', 'populate_prices.log')
+log_file_path = os.path.join(os.path.dirname(__file__), '..', '..', 'logs', 'populate_prices.log')
 logging.basicConfig(filename=log_file_path, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 

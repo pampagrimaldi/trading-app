@@ -3,7 +3,8 @@ async_tests/
 .idea/
 .env
 data/
-data_tests/
+alembic/
+data_requests/
 strategy/*/backtests/
 strategy/*/.idea/
 strategy/*/.vscode/

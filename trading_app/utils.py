@@ -1,7 +1,6 @@
 import pandas as pd
 from pathlib import Path
 from trading_app.database import SessionLocal
-from trading_app.models import StockPrice, Stock
 from fastapi import Depends
 import glob
 import json
@@ -12,13 +11,27 @@ from datetime import datetime, timedelta
 from trading_app.database import get_db
 from sqlalchemy.orm import Session
 from trading_app.models import (Stock, Strategy, Backtest, BacktestStatistics,
-                                BacktestProfitLoss, BacktestOrders, BacktestCharts)
+                                BacktestProfitLoss, BacktestOrders, BacktestCharts, StockPrice)
 
 data_folder = './data'
 ib_folder = './ibdata'
 
 
 def get_stock_data(symbol: str, start_date, end_date):
+    """
+        Fetches stock data for a given symbol between the specified start and end dates.
+        The data is fetched from the database and returned as a pandas DataFrame.
+
+        Args:
+            symbol (str): The stock symbol to fetch data for.
+            start_date (datetime): The start date for the data range.
+            end_date (datetime): The end date for the data range.
+
+        Returns:
+            df (DataFrame): A pandas DataFrame containing the stock data.
+    """
+
+    # Create a database session
     with SessionLocal() as session:
         stock_id = session.query(Stock).filter(Stock.symbol == symbol).first().id
 
@@ -47,6 +60,14 @@ def get_stock_data(symbol: str, start_date, end_date):
 
 
 def save_to_csv(df, symbol, folder):
+    """
+        Saves a pandas DataFrame to a CSV file, used for storing stock data in Lean friendly format.
+
+        Args:
+            df (DataFrame): The pandas DataFrame to save.
+            symbol (str): The stock symbol. This is used to generate the file name.
+            folder (str): The folder to save the CSV file in.
+    """
     file_name = symbol.lower() + '.csv'
     path = Path(folder) / file_name
     df.to_csv(path, index=False)
@@ -54,6 +75,18 @@ def save_to_csv(df, symbol, folder):
 
 
 def get_lean_data(tickers: list, start_date, end_date):
+    """
+        Fetches stock data for a list of tickers between the specified start and end dates.
+        The data is fetched from the database and saved to CSV files.
+
+        Args:
+            tickers (list): A list of stock symbols to fetch data for.
+            start_date (datetime): The start date for the data range.
+            end_date (datetime): The end date for the data range.
+
+        Returns:
+            loaded_tickers (list): A list of tickers for which data was successfully fetched and saved.
+    """
     tickers = tickers if isinstance(tickers, list) else [tickers]
     folder = Path(data_folder) / ib_folder
 
@@ -79,6 +112,19 @@ def get_lean_data(tickers: list, start_date, end_date):
 
 
 def write_backtest_to_db(json_file: str, symbol: str, strategy_name: str, db: Session = Depends(get_db)):
+    """
+        Writes backtest results from a JSON file to the database.
+
+        Args:
+            json_file (str): The path to the JSON file containing the backtest results.
+            symbol (str): The stock symbol that the backtest was run on.
+            strategy_name (str): The name of the strategy used in the backtest.
+            db (Session, optional): A SQLAlchemy Session object. If not provided, one will be created.
+
+        Raises:
+            ValueError: If the provided stock symbol or strategy name is not found in the database.
+    """
+
     # Load the JSON file
     with open(json_file, 'r') as f:
         data = json.load(f)
@@ -208,6 +254,16 @@ def write_backtest_to_db(json_file: str, symbol: str, strategy_name: str, db: Se
 
 # 2. Get latest json file
 def get_json_files(strategy_name):
+    """
+        Fetches the latest JSON file for a given strategy.
+
+        Args:
+            strategy_name (str): The name of the strategy to fetch the JSON file for.
+
+        Returns:
+            json_files[0] (str): The path to the latest JSON file for the given strategy.
+    """
+
     # Define the directory path for the strategy
     strategy_dir = os.path.join('strategy', strategy_name, 'backtests')
 

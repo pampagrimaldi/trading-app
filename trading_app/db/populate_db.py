@@ -15,7 +15,7 @@ import random
 logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
 
 # Set up logging
-log_file_path = os.path.join(os.path.dirname(__file__), '..', 'logs', 'populate_db.log')
+log_file_path = os.path.join(os.path.dirname(__file__), '..', '..',  'logs', 'populate_db.log')
 logging.basicConfig(filename=log_file_path, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Async Scraper
