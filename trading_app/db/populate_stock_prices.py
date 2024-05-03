@@ -19,7 +19,7 @@ import numpy as np
 # todo: fix the additional error logging
 
 # Set up logging
-log_file_path = os.path.join(os.path.dirname(__file__), '..', '..', 'logs', 'populate_prices.log')
+log_file_path = os.path.join(os.path.dirname(__file__), '..', '..', 'logs', 'populate_stock_prices.log')
 logging.basicConfig(filename=log_file_path, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
@@ -79,7 +79,6 @@ async def fetch_historical_data(session, conid, max_retries=5):
     return None
 
 
-# Process historical data for each stock
 # Process historical data for each stock
 async def process_stock_data(session, stock_id, conid):
     """
@@ -146,6 +145,11 @@ async def bulk_insert_prices(stock_prices):
 
 
 async def main():
+    """
+        The main function of the script. It orchestrates the entire process of fetching historical data for each stock,
+        processing the data, and then saving the data to the database. It does this by calling the other functions in the
+        script in the correct order.
+    """
     async with aiohttp.ClientSession() as session:
         async with SessionLocalAsync() as db_session:
             # debug: test on a single stock
@@ -213,4 +217,4 @@ if __name__ == "__main__":
     start_time = time.time()
     asyncio.run(main())
     end_time = time.time()
-    logging.info('Total time taken %s seconds', end_time - start_time)
+    logging.info('Total time taken %s seconds', round(end_time - start_time, 2))
